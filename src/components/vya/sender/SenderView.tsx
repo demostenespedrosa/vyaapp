@@ -15,15 +15,24 @@ import {
   MoreVertical,
   UserCheck,
   PackageOpen,
-  MapPinned
+  MapPinned,
+  ArrowLeft,
+  ShieldCheck,
+  QrCode,
+  Phone,
+  User,
+  Info,
+  ExternalLink,
+  HelpCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
 
-// Novos estados detalhados conforme solicitado
+// Estados detalhados do envio
 type ShipmentStatus = 'searching' | 'waiting_pickup' | 'transit' | 'waiting_delivery' | 'delivered' | 'canceled';
 
 interface Shipment {
@@ -37,6 +46,16 @@ interface Shipment {
   size: 'P' | 'M' | 'G';
   progress: number;
   price: number;
+  recipient: {
+    name: string;
+    phone: string;
+    cpf: string;
+  };
+  traveler?: {
+    name: string;
+    rating: number;
+    photo: string;
+  };
 }
 
 const MOCK_SHIPMENTS: Shipment[] = [
@@ -50,7 +69,9 @@ const MOCK_SHIPMENTS: Shipment[] = [
     date: 'Hoje, 14:20', 
     size: 'P', 
     progress: 65,
-    price: 25.00
+    price: 25.00,
+    recipient: { name: 'Mariana Costa', phone: '(11) 98877-6655', cpf: '***.443.221-**' },
+    traveler: { name: 'Ricardo Silva', rating: 4.9, photo: 'https://picsum.photos/seed/traveler1/100/100' }
   },
   { 
     id: 'VY-4412', 
@@ -62,7 +83,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     date: 'Hoje, 10:05', 
     size: 'M', 
     progress: 15,
-    price: 45.00
+    price: 45.00,
+    recipient: { name: 'João Pedro', phone: '(41) 99988-7766', cpf: '***.112.334-**' }
   },
   { 
     id: 'VY-7723', 
@@ -74,7 +96,9 @@ const MOCK_SHIPMENTS: Shipment[] = [
     date: 'Hoje, 16:00', 
     size: 'P', 
     progress: 40,
-    price: 15.00
+    price: 15.00,
+    recipient: { name: 'Cláudia Souza', phone: '(21) 97766-5544', cpf: '***.887.665-**' },
+    traveler: { name: 'Beatriz Lima', rating: 4.8, photo: 'https://picsum.photos/seed/traveler2/100/100' }
   },
   { 
     id: 'VY-3391', 
@@ -86,7 +110,9 @@ const MOCK_SHIPMENTS: Shipment[] = [
     date: 'Ontem, 09:30', 
     size: 'M', 
     progress: 90,
-    price: 55.00
+    price: 55.00,
+    recipient: { name: 'Felipe Mendes', phone: '(27) 96655-4433', cpf: '***.554.332-**' },
+    traveler: { name: 'Carlos Santos', rating: 5.0, photo: 'https://picsum.photos/seed/traveler3/100/100' }
   },
   { 
     id: 'VY-1029', 
@@ -98,12 +124,15 @@ const MOCK_SHIPMENTS: Shipment[] = [
     date: '2 dias atrás', 
     size: 'G', 
     progress: 100,
-    price: 120.00
+    price: 120.00,
+    recipient: { name: 'Ana Beatriz', phone: '(51) 95544-3322', cpf: '***.223.445-**' },
+    traveler: { name: 'Marcos Oliver', rating: 4.7, photo: 'https://picsum.photos/seed/traveler4/100/100' }
   }
 ];
 
 export function SenderView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
   const [isCreating, setIsCreating] = useState(initialIsCreating);
+  const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -112,7 +141,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
       <div className="space-y-6 page-transition">
         <div className="flex items-center gap-4 mb-2">
           <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="rounded-full bg-muted h-10 w-10">
-            <ArrowRight className="h-5 w-5 rotate-180" />
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <h2 className="text-xl font-bold">O que vamos mandar?</h2>
         </div>
@@ -121,8 +150,11 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     );
   }
 
+  if (selectedShipment) {
+    return <ShipmentDetail shipment={selectedShipment} onBack={() => setSelectedShipment(null)} />;
+  }
+
   const filteredShipments = MOCK_SHIPMENTS.filter(s => {
-    // Filtro de abas: 'active' mostra tudo exceto entregue ou cancelado
     const isTabMatch = activeTab === 'active' 
       ? (s.status !== 'delivered' && s.status !== 'canceled')
       : (s.status === 'delivered' || s.status === 'canceled');
@@ -134,28 +166,6 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     
     return isTabMatch && isSearchMatch;
   });
-
-  const getStatusIcon = (status: ShipmentStatus) => {
-    switch (status) {
-      case 'searching': return <UserCheck className="h-5 w-5" />;
-      case 'waiting_pickup': return <PackageOpen className="h-5 w-5" />;
-      case 'transit': return <Truck className="h-5 w-5" />;
-      case 'waiting_delivery': return <MapPinned className="h-5 w-5" />;
-      case 'delivered': return <CheckCircle2 className="h-5 w-5" />;
-      default: return <Package className="h-5 w-5" />;
-    }
-  };
-
-  const getStatusColor = (status: ShipmentStatus) => {
-    switch (status) {
-      case 'searching': return "bg-orange-50 text-orange-600";
-      case 'waiting_pickup': return "bg-blue-50 text-blue-600";
-      case 'transit': return "bg-primary/10 text-primary";
-      case 'waiting_delivery': return "bg-purple-50 text-purple-600";
-      case 'delivered': return "bg-green-50 text-green-600";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
 
   return (
     <div className="space-y-6 page-transition pb-10">
@@ -205,96 +215,286 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
       <div className="space-y-4">
         {filteredShipments.length > 0 ? (
           filteredShipments.map((shipment) => (
-            <div key={shipment.id} className="relative group active:scale-[0.98] transition-all">
-              <div className="bg-white rounded-[2rem] border border-muted p-5 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                <div className="flex justify-between items-start mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className={cn(
-                      "h-10 w-10 rounded-2xl flex items-center justify-center transition-colors",
-                      getStatusColor(shipment.status)
-                    )}>
-                      {getStatusIcon(shipment.status)}
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase">{shipment.id}</span>
-                        <Badge variant="outline" className="text-[9px] font-bold h-4 px-1 border-primary/20 text-primary">TAM {shipment.size}</Badge>
-                      </div>
-                      <p className="text-sm font-bold">{shipment.statusLabel}</p>
-                    </div>
-                  </div>
-                  <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
-                    <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
-
-                <p className="text-xs text-muted-foreground mb-3 font-medium line-clamp-1">{shipment.description}</p>
-
-                <div className="flex items-center gap-4 mb-4 relative">
-                  <div className="flex flex-col items-center gap-1 shrink-0">
-                    <div className="h-2 w-2 rounded-full bg-primary/30" />
-                    <div className="w-[1px] h-4 border-l border-dashed border-primary/30" />
-                    <div className="h-2 w-2 rounded-full bg-primary" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <p className="text-xs font-medium text-muted-foreground truncate">{shipment.from}</p>
-                    <p className="text-xs font-bold truncate">{shipment.to}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-primary">R$ {shipment.price.toFixed(2)}</p>
-                    <p className="text-[10px] text-muted-foreground">{shipment.date}</p>
-                  </div>
-                </div>
-
-                {activeTab === 'active' && (
-                  <div className="space-y-2 mt-4 pt-4 border-t">
-                    <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
-                      <span className="text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Atualizado há pouco
-                      </span>
-                      <span className="text-primary">{shipment.progress}%</span>
-                    </div>
-                    <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
-                      <div 
-                        className="h-full bg-primary rounded-full transition-all duration-1000 ease-out shadow-[0_0_8px_rgba(var(--primary),0.4)]"
-                        style={{ width: `${shipment.progress}%` }}
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === 'history' && (
-                  <div className="mt-4 pt-4 border-t flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-[11px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                      <CheckCircle2 className="h-3 w-3" /> Concluído com sucesso
-                    </div>
-                    <Button variant="ghost" size="sm" className="text-xs font-bold gap-1 text-primary p-0 h-auto">
-                      Ver detalhes <ChevronRight className="h-3 w-3" />
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </div>
+            <ShipmentCard key={shipment.id} shipment={shipment} onClick={() => setSelectedShipment(shipment)} />
           ))
         ) : (
-          <div className="py-20 text-center space-y-4">
-            <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
-              <Truck className="h-10 w-10 text-muted-foreground/30" />
-            </div>
-            <div>
-              <p className="font-bold text-muted-foreground">Nada por aqui ainda...</p>
-              <p className="text-xs text-muted-foreground/60">Bora fazer o seu primeiro envio?</p>
-            </div>
-            <Button 
-              variant="outline" 
-              className="rounded-2xl border-dashed border-2 hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all"
-              onClick={() => setIsCreating(true)}
-            >
-              Começar agora
-            </Button>
-          </div>
+          <EmptyState onAction={() => setIsCreating(true)} />
         )}
       </div>
+    </div>
+  );
+}
+
+function ShipmentCard({ shipment, onClick }: { shipment: Shipment, onClick: () => void }) {
+  const getStatusIcon = (status: ShipmentStatus) => {
+    switch (status) {
+      case 'searching': return <UserCheck className="h-5 w-5" />;
+      case 'waiting_pickup': return <PackageOpen className="h-5 w-5" />;
+      case 'transit': return <Truck className="h-5 w-5" />;
+      case 'waiting_delivery': return <MapPinned className="h-5 w-5" />;
+      case 'delivered': return <CheckCircle2 className="h-5 w-5" />;
+      default: return <Package className="h-5 w-5" />;
+    }
+  };
+
+  const getStatusColor = (status: ShipmentStatus) => {
+    switch (status) {
+      case 'searching': return "bg-orange-50 text-orange-600";
+      case 'waiting_pickup': return "bg-blue-50 text-blue-600";
+      case 'transit': return "bg-primary/10 text-primary";
+      case 'waiting_delivery': return "bg-purple-50 text-purple-600";
+      case 'delivered': return "bg-green-50 text-green-600";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
+  return (
+    <div onClick={onClick} className="relative group active:scale-[0.98] transition-all cursor-pointer">
+      <div className="bg-white rounded-[2rem] border border-muted p-5 shadow-sm hover:shadow-md transition-all">
+        <div className="flex justify-between items-start mb-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "h-10 w-10 rounded-2xl flex items-center justify-center transition-colors",
+              getStatusColor(shipment.status)
+            )}>
+              {getStatusIcon(shipment.status)}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-bold text-muted-foreground tracking-widest uppercase">{shipment.id}</span>
+                <Badge variant="outline" className="text-[9px] font-bold h-4 px-1 border-primary/20 text-primary">TAM {shipment.size}</Badge>
+              </div>
+              <p className="text-sm font-bold">{shipment.statusLabel}</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
+            <MoreVertical className="h-4 w-4 text-muted-foreground" />
+          </Button>
+        </div>
+
+        <p className="text-xs text-muted-foreground mb-3 font-medium line-clamp-1">{shipment.description}</p>
+
+        <div className="flex items-center gap-4 mb-4">
+          <div className="flex flex-col items-center gap-1 shrink-0">
+            <div className="h-2 w-2 rounded-full bg-primary/30" />
+            <div className="w-[1px] h-4 border-l border-dashed border-primary/30" />
+            <div className="h-2 w-2 rounded-full bg-primary" />
+          </div>
+          <div className="flex-1 min-w-0 space-y-1">
+            <p className="text-xs font-medium text-muted-foreground truncate">{shipment.from}</p>
+            <p className="text-xs font-bold truncate">{shipment.to}</p>
+          </div>
+          <div className="text-right shrink-0">
+            <p className="text-sm font-bold text-primary">R$ {shipment.price.toFixed(2)}</p>
+            <p className="text-[10px] text-muted-foreground">{shipment.date}</p>
+          </div>
+        </div>
+
+        <div className="space-y-2 mt-4 pt-4 border-t">
+          <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
+            <span className="text-muted-foreground flex items-center gap-1">
+              <Clock className="h-3 w-3" /> Atualizado há pouco
+            </span>
+            <span className="text-primary">{shipment.progress}%</span>
+          </div>
+          <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
+            <div 
+              className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
+              style={{ width: `${shipment.progress}%` }}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () => void }) {
+  const steps = [
+    { id: 'searching', label: 'Buscando Viajante', sub: 'Sistema procurando match' },
+    { id: 'waiting_pickup', label: 'Aguardando Coleta', sub: 'Viajante indo ao ponto' },
+    { id: 'transit', label: 'Em Trânsito', sub: 'Pacote na estrada' },
+    { id: 'waiting_delivery', label: 'Pronto para Retirada', sub: 'Aguardando destinatário' },
+    { id: 'delivered', label: 'Entregue', sub: 'Finalizado com sucesso' }
+  ];
+
+  const currentStepIndex = steps.findIndex(s => s.id === shipment.status);
+
+  return (
+    <div className="space-y-8 page-transition pb-20">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full bg-muted h-10 w-10">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div>
+          <h2 className="text-xl font-bold">Envio {shipment.id}</h2>
+          <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Criado em {shipment.date}</p>
+        </div>
+      </div>
+
+      {/* Status Hero */}
+      <Card className="rounded-[2.5rem] border-none bg-primary text-white shadow-xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-8 opacity-10">
+          <Truck className="h-32 w-32" />
+        </div>
+        <CardContent className="p-8 relative z-10 space-y-4">
+          <div className="space-y-1">
+            <p className="text-white/70 text-[10px] font-bold uppercase tracking-widest">Status Atual</p>
+            <h3 className="text-2xl font-bold">{shipment.statusLabel}</h3>
+          </div>
+          <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-4 rounded-2xl">
+            <div className="h-10 w-10 rounded-xl bg-white/20 flex items-center justify-center">
+              <ShieldCheck className="h-6 w-6" />
+            </div>
+            <p className="text-xs font-medium leading-relaxed">
+              Pagamento seguro retido. Valor será liberado após o destinatário confirmar a retirada.
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Linha do Tempo */}
+      <section className="space-y-4">
+        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Rastreio em Tempo Real</h4>
+        <div className="space-y-6 pl-2">
+          {steps.map((step, idx) => {
+            const isCompleted = idx < currentStepIndex;
+            const isCurrent = idx === currentStepIndex;
+            const isLast = idx === steps.length - 1;
+
+            return (
+              <div key={step.id} className="flex gap-4 relative">
+                {!isLast && (
+                  <div className={cn(
+                    "absolute left-[11px] top-6 w-[2px] h-full",
+                    isCompleted ? "bg-primary" : "bg-muted"
+                  )} />
+                )}
+                <div className={cn(
+                  "h-6 w-6 rounded-full border-4 z-10 flex items-center justify-center shrink-0",
+                  isCompleted ? "bg-primary border-primary text-white" : 
+                  isCurrent ? "bg-white border-primary animate-pulse" : "bg-white border-muted"
+                )}>
+                  {isCompleted && <CheckCircle2 className="h-3 w-3" />}
+                </div>
+                <div className={cn(
+                  "flex-1 pb-2",
+                  isCurrent ? "opacity-100" : isCompleted ? "opacity-80" : "opacity-40"
+                )}>
+                  <p className={cn("text-sm font-bold", isCurrent && "text-primary")}>{step.label}</p>
+                  <p className="text-[10px] text-muted-foreground">{step.sub}</p>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      {/* Informações do Envio */}
+      <section className="space-y-3">
+        <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Dados da Entrega</h4>
+        <Card className="rounded-[2rem] border-muted bg-white overflow-hidden shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center gap-4">
+              <div className="h-12 w-12 rounded-2xl bg-muted/50 flex items-center justify-center text-muted-foreground">
+                <Package className="h-6 w-6" />
+              </div>
+              <div>
+                <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">O que é</p>
+                <p className="text-sm font-bold">{shipment.description}</p>
+                <p className="text-[10px] text-muted-foreground">Tamanho {shipment.size} • R$ {shipment.price.toFixed(2)}</p>
+              </div>
+            </div>
+
+            <div className="space-y-4 pt-4 border-t">
+              <div className="flex gap-4">
+                <div className="flex flex-col items-center gap-1 shrink-0 pt-1">
+                  <div className="h-2 w-2 rounded-full bg-primary/30" />
+                  <div className="w-[1px] h-8 border-l border-dashed border-primary/30" />
+                  <div className="h-2 w-2 rounded-full bg-primary" />
+                </div>
+                <div className="flex-1 space-y-4">
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Origem</p>
+                    <p className="text-xs font-medium">{shipment.from}</p>
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Destino Final</p>
+                    <p className="text-xs font-medium">{shipment.to}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Destinatário</p>
+                    <p className="text-xs font-bold">{shipment.recipient.name}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" className="rounded-full bg-primary/5 text-primary">
+                  <Phone className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Código de Segurança */}
+      {shipment.status !== 'delivered' && (
+        <section className="space-y-3">
+          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Código de Entrega</h4>
+          <Card className="rounded-[2.5rem] border-none bg-muted/30 p-8 flex flex-col items-center text-center gap-4">
+            <div className="p-6 bg-white rounded-[2rem] shadow-sm">
+              <QrCode className="h-32 w-32 text-foreground" />
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs font-bold text-muted-foreground uppercase">Código de Handover</p>
+              <p className="text-3xl font-bold tracking-[0.5rem] text-primary">{shipment.id.split('-')[1]}</p>
+            </div>
+            <p className="text-[10px] text-muted-foreground leading-relaxed px-4">
+              O destinatário deve mostrar este QR Code ou ditar o código para o viajante confirmar a entrega.
+            </p>
+          </Card>
+        </section>
+      )}
+
+      {/* Ações de Suporte */}
+      <section className="grid grid-cols-2 gap-3">
+        <Button variant="outline" className="h-14 rounded-2xl gap-2 font-bold border-muted text-muted-foreground">
+          <HelpCircle className="h-5 w-5" /> Ajuda
+        </Button>
+        <Button variant="outline" className="h-14 rounded-2xl gap-2 font-bold border-destructive/20 text-destructive hover:bg-destructive/5">
+          Cancelar
+        </Button>
+      </section>
+    </div>
+  );
+}
+
+function EmptyState({ onAction }: { onAction: () => void }) {
+  return (
+    <div className="py-20 text-center space-y-4">
+      <div className="h-20 w-20 bg-muted/30 rounded-full flex items-center justify-center mx-auto">
+        <Truck className="h-10 w-10 text-muted-foreground/30" />
+      </div>
+      <div>
+        <p className="font-bold text-muted-foreground">Nada por aqui ainda...</p>
+        <p className="text-xs text-muted-foreground/60">Bora fazer o seu primeiro envio?</p>
+      </div>
+      <Button 
+        variant="outline" 
+        className="rounded-2xl border-dashed border-2 hover:bg-primary/5 hover:text-primary hover:border-primary/50 transition-all"
+        onClick={onAction}
+      >
+        Começar agora
+      </Button>
     </div>
   );
 }
