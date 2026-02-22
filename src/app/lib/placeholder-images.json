@@ -1,0 +1,35 @@
+
+{
+  "placeholderImages": [
+    {
+      "id": "logistics-hero",
+      "description": "Logistics delivery van on a highway",
+      "imageUrl": "https://picsum.photos/seed/vya-logistics/1200/800",
+      "imageHint": "logistics delivery"
+    },
+    {
+      "id": "traveler-hero",
+      "description": "Person traveling with a backpack",
+      "imageUrl": "https://picsum.photos/seed/vya-travel/1200/800",
+      "imageHint": "travel backpacker"
+    },
+    {
+      "id": "package-p",
+      "description": "Small package icon",
+      "imageUrl": "https://picsum.photos/seed/package-p/400/400",
+      "imageHint": "small box"
+    },
+    {
+      "id": "package-m",
+      "description": "Medium package icon",
+      "imageUrl": "https://picsum.photos/seed/package-m/400/400",
+      "imageHint": "medium box"
+    },
+    {
+      "id": "package-g",
+      "description": "Large package icon",
+      "imageUrl": "https://picsum.photos/seed/package-g/400/400",
+      "imageHint": "large box"
+    }
+  ]
+}
