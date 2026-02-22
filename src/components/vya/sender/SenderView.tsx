@@ -18,12 +18,14 @@ import {
   MapPinned,
   ArrowLeft,
   ShieldCheck,
-  QrCode,
+  Hash,
   Phone,
   User,
   Info,
   ExternalLink,
-  HelpCircle
+  HelpCircle,
+  Copy,
+  Share2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +33,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 // Estados detalhados do envio
 type ShipmentStatus = 'searching' | 'waiting_pickup' | 'transit' | 'waiting_delivery' | 'delivered' | 'canceled';
@@ -46,6 +49,8 @@ interface Shipment {
   size: 'P' | 'M' | 'G';
   progress: number;
   price: number;
+  pickupCode: string; // Código de 6 dígitos (000-000)
+  deliveryCode: string; // Código de 6 dígitos (000-000)
   recipient: {
     name: string;
     phone: string;
@@ -70,6 +75,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     size: 'P', 
     progress: 65,
     price: 25.00,
+    pickupCode: '442-981',
+    deliveryCode: '110-334',
     recipient: { name: 'Mariana Costa', phone: '(11) 98877-6655', cpf: '***.443.221-**' },
     traveler: { name: 'Ricardo Silva', rating: 4.9, photo: 'https://picsum.photos/seed/traveler1/100/100' }
   },
@@ -84,6 +91,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     size: 'M', 
     progress: 15,
     price: 45.00,
+    pickupCode: '882-114',
+    deliveryCode: '993-002',
     recipient: { name: 'João Pedro', phone: '(41) 99988-7766', cpf: '***.112.334-**' }
   },
   { 
@@ -97,6 +106,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     size: 'P', 
     progress: 40,
     price: 15.00,
+    pickupCode: '109-223',
+    deliveryCode: '554-881',
     recipient: { name: 'Cláudia Souza', phone: '(21) 97766-5544', cpf: '***.887.665-**' },
     traveler: { name: 'Beatriz Lima', rating: 4.8, photo: 'https://picsum.photos/seed/traveler2/100/100' }
   },
@@ -111,6 +122,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     size: 'M', 
     progress: 90,
     price: 55.00,
+    pickupCode: '332-119',
+    deliveryCode: '882-441',
     recipient: { name: 'Felipe Mendes', phone: '(27) 96655-4433', cpf: '***.554.332-**' },
     traveler: { name: 'Carlos Santos', rating: 5.0, photo: 'https://picsum.photos/seed/traveler3/100/100' }
   },
@@ -125,6 +138,8 @@ const MOCK_SHIPMENTS: Shipment[] = [
     size: 'G', 
     progress: 100,
     price: 120.00,
+    pickupCode: '112-993',
+    deliveryCode: '445-102',
     recipient: { name: 'Ana Beatriz', phone: '(51) 95544-3322', cpf: '***.223.445-**' },
     traveler: { name: 'Marcos Oliver', rating: 4.7, photo: 'https://picsum.photos/seed/traveler4/100/100' }
   }
@@ -310,6 +325,7 @@ function ShipmentCard({ shipment, onClick }: { shipment: Shipment, onClick: () =
 }
 
 function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () => void }) {
+  const { toast } = useToast();
   const steps = [
     { id: 'searching', label: 'Buscando Viajante', sub: 'Sistema procurando match' },
     { id: 'waiting_pickup', label: 'Aguardando Coleta', sub: 'Viajante indo ao ponto' },
@@ -319,6 +335,14 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
   ];
 
   const currentStepIndex = steps.findIndex(s => s.id === shipment.status);
+
+  const copyCode = (code: string, type: string) => {
+    navigator.clipboard.writeText(code);
+    toast({
+      title: "Código copiado!",
+      description: `Código de ${type} pronto para colar.`,
+    });
+  };
 
   return (
     <div className="space-y-8 page-transition pb-20">
@@ -347,7 +371,7 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
               <ShieldCheck className="h-6 w-6" />
             </div>
             <p className="text-xs font-medium leading-relaxed">
-              Pagamento seguro retido. Valor será liberado após o destinatário confirmar a retirada.
+              Pagamento seguro retido. Valor será liberado apenas após a confirmação dos códigos.
             </p>
           </div>
         </CardContent>
@@ -389,6 +413,68 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
           })}
         </div>
       </section>
+
+      {/* Códigos de Segurança */}
+      {shipment.status !== 'delivered' && (
+        <section className="space-y-4">
+          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Confirmação de Segurança 🔐</h4>
+          
+          <div className="grid gap-3">
+            {/* Código de Coleta - Remetente fornece ao viajante */}
+            <Card className="rounded-[2rem] border-none bg-muted/30 overflow-hidden group">
+              <CardContent className="p-6 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                      <Package className="h-4 w-4" />
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Código de Coleta</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary">Para o Viajante</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm">
+                  <span className="text-2xl font-bold tracking-[0.3rem] text-primary">{shipment.pickupCode}</span>
+                  <Button variant="ghost" size="icon" onClick={() => copyCode(shipment.pickupCode, "coleta")}>
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                  </Button>
+                </div>
+                <p className="text-[9px] text-muted-foreground leading-relaxed">
+                  Forneça este código ao viajante assim que ele coletar o pacote com você.
+                </p>
+              </CardContent>
+            </Card>
+
+            {/* Código de Entrega - Destinatário fornece ao viajante */}
+            <Card className="rounded-[2rem] border-none bg-muted/30 overflow-hidden group">
+              <CardContent className="p-6 space-y-3">
+                <div className="flex justify-between items-center">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-lg bg-secondary/10 flex items-center justify-center text-secondary">
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Código de Entrega</p>
+                  </div>
+                  <Badge variant="outline" className="text-[9px] font-bold uppercase border-secondary/20 text-secondary">Para o Destinatário</Badge>
+                </div>
+                <div className="flex items-center justify-between bg-white p-4 rounded-2xl shadow-sm">
+                  <span className="text-2xl font-bold tracking-[0.3rem] text-secondary">{shipment.deliveryCode}</span>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" onClick={() => copyCode(shipment.deliveryCode, "entrega")}>
+                      <Copy className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                    <Button variant="ghost" size="icon">
+                      <Share2 className="h-4 w-4 text-muted-foreground" />
+                    </Button>
+                  </div>
+                </div>
+                <p className="text-[9px] text-muted-foreground leading-relaxed">
+                  Compartilhe este código com o <strong>destinatário</strong>. Ele deve informar ao viajante na hora da entrega.
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+        </section>
+      )}
 
       {/* Informações do Envio */}
       <section className="space-y-3">
@@ -445,25 +531,6 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
           </CardContent>
         </Card>
       </section>
-
-      {/* Código de Segurança */}
-      {shipment.status !== 'delivered' && (
-        <section className="space-y-3">
-          <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest px-1">Código de Entrega</h4>
-          <Card className="rounded-[2.5rem] border-none bg-muted/30 p-8 flex flex-col items-center text-center gap-4">
-            <div className="p-6 bg-white rounded-[2rem] shadow-sm">
-              <QrCode className="h-32 w-32 text-foreground" />
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-bold text-muted-foreground uppercase">Código de Handover</p>
-              <p className="text-3xl font-bold tracking-[0.5rem] text-primary">{shipment.id.split('-')[1]}</p>
-            </div>
-            <p className="text-[10px] text-muted-foreground leading-relaxed px-4">
-              O destinatário deve mostrar este QR Code ou ditar o código para o viajante confirmar a entrega.
-            </p>
-          </Card>
-        </section>
-      )}
 
       {/* Ações de Suporte */}
       <section className="grid grid-cols-2 gap-3">
