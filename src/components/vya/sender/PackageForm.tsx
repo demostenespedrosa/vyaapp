@@ -43,6 +43,18 @@ interface OsmLocation {
   display_name: string;
   lat: string;
   lon: string;
+  address?: {
+    city?: string;
+    town?: string;
+    village?: string;
+    municipality?: string;
+    suburb?: string;
+    hamlet?: string;
+    state?: string;
+    road?: string;
+    house_number?: string;
+  };
+  simplifiedName?: string;
 }
 
 export function PackageForm({ onComplete }: { onComplete: () => void }) {
@@ -100,19 +112,44 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }
 
+  // Função para simplificar o endereço (Cidade, Estado)
+  const formatLocationName = (loc: OsmLocation): string => {
+    if (!loc.address) return loc.display_name.split(',')[0];
+    
+    const city = loc.address.city || loc.address.town || loc.address.village || loc.address.municipality || loc.address.suburb || loc.address.hamlet;
+    const state = loc.address.state;
+    const road = loc.address.road;
+    
+    if (road && city) {
+      return `${road}, ${city} - ${state}`;
+    }
+    
+    if (city && state) {
+      return `${city}, ${state}`;
+    }
+    
+    return loc.display_name.split(',').slice(0, 2).join(', ');
+  };
+
   // Busca de endereço no OpenStreetMap (Nominatim)
   const searchOsm = async (query: string, setResults: (res: OsmLocation[]) => void, setSearching: (val: boolean) => void) => {
     if (query.length < 3) return;
     setSearching(true);
     try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5`, {
+      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5&addressdetails=1`, {
         headers: {
           'Accept-Language': 'pt-BR',
           'User-Agent': 'VYA-Logistics-App-Prototype'
         }
       });
       const data = await response.json();
-      setResults(data);
+      
+      const simplifiedData = data.map((item: OsmLocation) => ({
+        ...item,
+        simplifiedName: formatLocationName(item)
+      }));
+      
+      setResults(simplifiedData);
     } catch (e) {
       console.error(e);
       toast({ variant: "destructive", title: "Erro na busca", description: "Não conseguimos buscar o endereço agora." });
@@ -125,7 +162,6 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const fetchRoadDistance = useCallback(async (origin: OsmLocation, dest: OsmLocation) => {
     setIsCalculatingRoute(true);
     try {
-      // OSRM espera coordenadas no formato lon,lat;lon,lat
       const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${dest.lon},${dest.lat}?overview=false`;
       const response = await fetch(url);
       const data = await response.json();
@@ -139,12 +175,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       }
     } catch (e) {
       console.error("Erro ao calcular rota rodoviária:", e);
-      toast({ 
-        variant: "destructive", 
-        title: "Erro no trajeto", 
-        description: "Não conseguimos calcular a distância pela rodovia. Tentando alternativa..." 
-      });
-      // Fallback simples (Haversine * 1.3 como estimativa de curva de estrada)
+      // Fallback simples
       const R = 6371;
       const dLat = (parseFloat(dest.lat) - parseFloat(origin.lat)) * (Math.PI / 180);
       const dLon = (parseFloat(dest.lon) - parseFloat(origin.lon)) * (Math.PI / 180);
@@ -230,7 +261,6 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               <FormField
-                control={form.control}
                 name="description"
                 render={({ field }) => (
                   <FormItem>
@@ -313,7 +343,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                     <Input 
                       placeholder="Origem (Cidade ou CEP)" 
                       className="border-none bg-transparent focus-visible:ring-0 text-base"
-                      value={selectedOrigin ? selectedOrigin.display_name : form.watch("origin")}
+                      value={selectedOrigin ? selectedOrigin.simplifiedName : form.watch("origin")}
                       onChange={(e) => {
                         form.setValue("origin", e.target.value);
                         setSelectedOrigin(null);
@@ -332,8 +362,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                   {!selectedOrigin && originResults.length > 0 && (
                     <div className="bg-white rounded-2xl border shadow-lg max-h-48 overflow-y-auto z-30 relative animate-in fade-in zoom-in-95">
                       {originResults.map((loc, i) => (
-                        <button key={i} type="button" className="w-full text-left p-3 text-xs hover:bg-primary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedOrigin(loc); setOriginResults([]); }}>
-                          {loc.display_name}
+                        <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-primary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedOrigin(loc); setOriginResults([]); }}>
+                          {loc.simplifiedName}
                         </button>
                       ))}
                     </div>
@@ -349,7 +379,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                     <Input 
                       placeholder="Destino (Cidade ou CEP)" 
                       className="border-none bg-transparent focus-visible:ring-0 text-base"
-                      value={selectedDest ? selectedDest.display_name : form.watch("destination")}
+                      value={selectedDest ? selectedDest.simplifiedName : form.watch("destination")}
                       onChange={(e) => {
                         form.setValue("destination", e.target.value);
                         setSelectedDest(null);
@@ -368,8 +398,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                   {!selectedDest && destResults.length > 0 && (
                     <div className="bg-white rounded-2xl border shadow-lg max-h-48 overflow-y-auto z-30 relative animate-in fade-in zoom-in-95">
                       {destResults.map((loc, i) => (
-                        <button key={i} type="button" className="w-full text-left p-3 text-xs hover:bg-secondary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedDest(loc); setDestResults([]); }}>
-                          {loc.display_name}
+                        <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-secondary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedDest(loc); setDestResults([]); }}>
+                          {loc.simplifiedName}
                         </button>
                       ))}
                     </div>
