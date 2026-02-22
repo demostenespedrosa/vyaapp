@@ -7,20 +7,26 @@ import { Button } from "@/components/ui/button";
 
 export function WalletCard() {
   return (
-    <Card className="bg-primary text-primary-foreground overflow-hidden">
+    <Card className="bg-gradient-to-br from-primary to-primary/80 text-primary-foreground border-none rounded-[2rem] shadow-2xl shadow-primary/20 overflow-hidden">
       <CardHeader className="flex flex-row items-center justify-between pb-2 space-y-0">
-        <CardTitle className="text-sm font-medium">Carteira VYA</CardTitle>
-        <Wallet className="h-4 w-4 opacity-70" />
+        <CardTitle className="text-xs font-bold uppercase tracking-widest opacity-80">Saldo Disponível</CardTitle>
+        <Wallet className="h-5 w-5 opacity-60" />
       </CardHeader>
-      <CardContent>
-        <div className="text-3xl font-bold font-headline">R$ 450,20</div>
-        <p className="text-xs opacity-70 mt-1">Disponível para saque imediato via PIX</p>
-        <div className="flex gap-2 mt-4">
-          <Button size="sm" variant="secondary" className="flex-1 text-xs">
-            <ArrowDownLeft className="mr-1 h-3 w-3" /> Receber
+      <CardContent className="pt-2">
+        <div className="text-4xl font-bold font-headline mb-1 tracking-tight">
+          <span className="text-lg opacity-60 mr-1">R$</span>
+          450,20
+        </div>
+        <p className="text-[10px] font-medium opacity-70 mb-6">
+          Prontinho para ir pro seu banco via PIX
+        </p>
+        
+        <div className="flex gap-3">
+          <Button size="lg" className="flex-1 h-12 rounded-2xl bg-white text-primary font-bold hover:bg-white/90 shadow-lg">
+            <ArrowDownLeft className="mr-2 h-4 w-4" /> Receber
           </Button>
-          <Button size="sm" variant="outline" className="flex-1 text-xs border-primary-foreground/30 hover:bg-primary-foreground/10 text-primary-foreground">
-            <ArrowUpRight className="mr-1 h-3 w-3" /> Sacar
+          <Button size="lg" variant="outline" className="flex-1 h-12 rounded-2xl border-white/30 text-white font-bold hover:bg-white/10">
+            <ArrowUpRight className="mr-2 h-4 w-4" /> Sacar
           </Button>
         </div>
       </CardContent>

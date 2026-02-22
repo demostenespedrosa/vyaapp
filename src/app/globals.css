@@ -5,58 +5,60 @@
 
 @layer base {
   :root {
-    --background: 280 25% 93%; /* Light purple #F2E7F2 */
+    --background: 0 0% 100%;
     --foreground: 310 46% 15%;
     --card: 0 0% 100%;
     --card-foreground: 310 46% 15%;
     --popover: 0 0% 100%;
     --popover-foreground: 310 46% 15%;
-    --primary: 310 46% 30%; /* Deep purple #702963 approx */
-    --primary-foreground: 0 0% 98%;
-    --secondary: 190 46% 30%; /* Accent blue #296370 */
-    --secondary-foreground: 0 0% 98%;
-    --muted: 280 20% 90%;
-    --muted-foreground: 310 20% 40%;
-    --accent: 190 46% 30%;
-    --accent-foreground: 0 0% 98%;
+    --primary: 310 46% 45%; /* Um roxo mais vibrante e amigável */
+    --primary-foreground: 0 0% 100%;
+    --secondary: 180 100% 25%; /* Verde água para confiança e sucesso */
+    --secondary-foreground: 0 0% 100%;
+    --muted: 280 20% 96%;
+    --muted-foreground: 310 10% 45%;
+    --accent: 310 46% 95%;
+    --accent-foreground: 310 46% 30%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 310 10% 85%;
-    --input: 310 10% 85%;
-    --ring: 310 46% 30%;
-    --radius: 1rem;
-  }
-  .dark {
-    --background: 310 46% 5%;
-    --foreground: 280 25% 93%;
-    --card: 310 46% 10%;
-    --card-foreground: 280 25% 93%;
-    --popover: 310 46% 10%;
-    --popover-foreground: 280 25% 93%;
-    --primary: 310 46% 40%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 190 46% 40%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 310 20% 15%;
-    --muted-foreground: 310 20% 65%;
-    --accent: 190 46% 40%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 310 10% 20%;
-    --input: 310 10% 20%;
-    --ring: 310 46% 40%;
+    --border: 310 10% 90%;
+    --input: 310 10% 90%;
+    --ring: 310 46% 45%;
+    --radius: 1.5rem; /* Cantos muito arredondados para sensação orgânica */
   }
 }
 
 @layer base {
   * {
     @apply border-border;
+    -webkit-tap-highlight-color: transparent;
   }
   body {
-    @apply bg-background text-foreground font-body;
+    @apply bg-background text-foreground font-body select-none overflow-x-hidden;
+    /* Impedir scroll elástico no iOS para parecer mais nativo */
+    position: fixed;
+    width: 100%;
+    height: 100%;
   }
   h1, h2, h3, h4, h5, h6 {
-    @apply font-headline font-bold;
+    @apply font-headline font-bold tracking-tight;
   }
+}
+
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.glass {
+  @apply bg-white/80 backdrop-blur-md border-t border-white/20;
+}
+
+/* Animação suave de entrada para telas */
+.page-transition {
+  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes slideUp {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
