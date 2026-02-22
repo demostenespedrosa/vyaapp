@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
@@ -25,7 +24,8 @@ import {
   ShieldCheck,
   CreditCard,
   Search,
-  X
+  X,
+  Route
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -61,7 +61,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [isSearchingDest, setIsSearchingDest] = useState(false);
   const [selectedOrigin, setSelectedOrigin] = useState<OsmLocation | null>(null);
   const [selectedDest, setSelectedDest] = useState<OsmLocation | null>(null);
+  
+  // Distância rodoviária
   const [calculatedDistance, setCalculatedDistance] = useState<number>(0);
+  const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -97,14 +100,15 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }
 
-  // Busca de endereço no OpenStreetMap
+  // Busca de endereço no OpenStreetMap (Nominatim)
   const searchOsm = async (query: string, setResults: (res: OsmLocation[]) => void, setSearching: (val: boolean) => void) => {
     if (query.length < 3) return;
     setSearching(true);
     try {
       const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5`, {
         headers: {
-          'Accept-Language': 'pt-BR'
+          'Accept-Language': 'pt-BR',
+          'User-Agent': 'VYA-Logistics-App-Prototype'
         }
       });
       const data = await response.json();
@@ -117,28 +121,48 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  // Cálculo de distância Haversine
-  const calculateDistance = useCallback((lat1: number, lon1: number, lat2: number, lon2: number) => {
-    const R = 6371; // Raio da Terra em km
-    const dLat = (lat2 - lat1) * (Math.PI / 180);
-    const dLon = (lon2 - lon1) * (Math.PI / 180);
-    const a = 
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }, []);
+  // Cálculo de distância RODOVIÁRIA via OSRM API
+  const fetchRoadDistance = useCallback(async (origin: OsmLocation, dest: OsmLocation) => {
+    setIsCalculatingRoute(true);
+    try {
+      // OSRM espera coordenadas no formato lon,lat;lon,lat
+      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${dest.lon},${dest.lat}?overview=false`;
+      const response = await fetch(url);
+      const data = await response.json();
+
+      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
+        const distanceInMeters = data.routes[0].distance;
+        const distanceInKm = distanceInMeters / 1000;
+        setCalculatedDistance(distanceInKm);
+      } else {
+        throw new Error('Rota não encontrada');
+      }
+    } catch (e) {
+      console.error("Erro ao calcular rota rodoviária:", e);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro no trajeto", 
+        description: "Não conseguimos calcular a distância pela rodovia. Tentando alternativa..." 
+      });
+      // Fallback simples (Haversine * 1.3 como estimativa de curva de estrada)
+      const R = 6371;
+      const dLat = (parseFloat(dest.lat) - parseFloat(origin.lat)) * (Math.PI / 180);
+      const dLon = (parseFloat(dest.lon) - parseFloat(origin.lon)) * (Math.PI / 180);
+      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos(parseFloat(origin.lat) * (Math.PI / 180)) * Math.cos(parseFloat(dest.lat) * (Math.PI / 180)) * 
+                Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      setCalculatedDistance((R * c) * 1.3); 
+    } finally {
+      setIsCalculatingRoute(false);
+    }
+  }, [toast]);
 
   useEffect(() => {
     if (selectedOrigin && selectedDest) {
-      const dist = calculateDistance(
-        parseFloat(selectedOrigin.lat), parseFloat(selectedOrigin.lon),
-        parseFloat(selectedDest.lat), parseFloat(selectedDest.lon)
-      );
-      setCalculatedDistance(dist);
+      fetchRoadDistance(selectedOrigin, selectedDest);
     }
-  }, [selectedOrigin, selectedDest, calculateDistance]);
+  }, [selectedOrigin, selectedDest, fetchRoadDistance]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -276,7 +300,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Pra onde vai? 📍</h2>
-                <p className="text-sm text-muted-foreground">O cálculo é feito pela distância real entre os pontos.</p>
+                <p className="text-sm text-muted-foreground">O cálculo é feito pela distância real rodoviária.</p>
               </div>
 
               <div className="space-y-6">
@@ -298,7 +322,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                       readOnly={!!selectedOrigin}
                     />
                     {selectedOrigin ? (
-                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedOrigin(null); form.setValue("origin", ""); setOriginResults([]); }}>
+                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedOrigin(null); form.setValue("origin", ""); setOriginResults([]); setCalculatedDistance(0); }}>
                         <X className="h-4 w-4" />
                       </Button>
                     ) : (
@@ -334,7 +358,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                       readOnly={!!selectedDest}
                     />
                     {selectedDest ? (
-                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedDest(null); form.setValue("destination", ""); setDestResults([]); }}>
+                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedDest(null); form.setValue("destination", ""); setDestResults([]); setCalculatedDistance(0); }}>
                         <X className="h-4 w-4" />
                       </Button>
                     ) : (
@@ -352,9 +376,17 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                   )}
                 </div>
 
-                {calculatedDistance > 0 && (
-                  <div className="p-4 bg-muted/20 rounded-[1.5rem] border border-dashed flex justify-between items-center animate-in slide-in-from-top-2">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância Total</span>
+                {isCalculatingRoute ? (
+                  <div className="p-4 bg-muted/20 rounded-[1.5rem] border border-dashed flex justify-center items-center gap-3 animate-pulse">
+                    <Route className="h-4 w-4 text-primary animate-bounce" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Traçando rota rodoviária...</span>
+                  </div>
+                ) : calculatedDistance > 0 && (
+                  <div className="p-4 bg-primary/5 rounded-[1.5rem] border border-primary/20 flex justify-between items-center animate-in slide-in-from-top-2">
+                    <div className="flex items-center gap-2">
+                      <Route className="h-4 w-4 text-primary" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância via Estrada</span>
+                    </div>
                     <span className="text-sm font-bold text-primary">{Math.round(calculatedDistance)} km</span>
                   </div>
                 )}
@@ -364,7 +396,12 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <Button type="button" onClick={nextStep} disabled={!selectedOrigin || !selectedDest} className="flex-1 h-14 rounded-2xl text-base font-bold">
+                <Button 
+                  type="button" 
+                  onClick={nextStep} 
+                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute} 
+                  className="flex-1 h-14 rounded-2xl text-base font-bold"
+                >
                   Continuar
                 </Button>
               </div>
