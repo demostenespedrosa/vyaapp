@@ -12,7 +12,10 @@ import {
   Truck, 
   MapPin,
   ChevronRight,
-  MoreVertical
+  MoreVertical,
+  UserCheck,
+  PackageOpen,
+  MapPinned
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,12 +23,14 @@ import { Badge } from "@/components/ui/badge";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
 
-type ShipmentStatus = 'searching' | 'transit' | 'delivered' | 'canceled';
+// Novos estados detalhados conforme solicitado
+type ShipmentStatus = 'searching' | 'waiting_pickup' | 'transit' | 'waiting_delivery' | 'delivered' | 'canceled';
 
 interface Shipment {
   id: string;
   status: ShipmentStatus;
   statusLabel: string;
+  description: string;
   from: string;
   to: string;
   date: string;
@@ -39,6 +44,7 @@ const MOCK_SHIPMENTS: Shipment[] = [
     id: 'VY-9821', 
     status: 'transit', 
     statusLabel: 'A caminho', 
+    description: 'Tênis Nike e Camisetas',
     from: 'São Paulo, SP', 
     to: 'Campinas, SP', 
     date: 'Hoje, 14:20', 
@@ -50,34 +56,49 @@ const MOCK_SHIPMENTS: Shipment[] = [
     id: 'VY-4412', 
     status: 'searching', 
     statusLabel: 'Buscando viajante', 
+    description: 'Livros de Design',
     from: 'Curitiba, PR', 
     to: 'Joinville, SC', 
     date: 'Hoje, 10:05', 
     size: 'M', 
-    progress: 10,
+    progress: 15,
     price: 45.00
+  },
+  { 
+    id: 'VY-7723', 
+    status: 'waiting_pickup', 
+    statusLabel: 'Aguardando coleta', 
+    description: 'Documentos urgentes',
+    from: 'Rio de Janeiro, RJ', 
+    to: 'Niterói, RJ', 
+    date: 'Hoje, 16:00', 
+    size: 'P', 
+    progress: 40,
+    price: 15.00
+  },
+  { 
+    id: 'VY-3391', 
+    status: 'waiting_delivery', 
+    statusLabel: 'Aguardando retirada', 
+    description: 'Café Especial',
+    from: 'Belo Horizonte, MG', 
+    to: 'Vitória, ES', 
+    date: 'Ontem, 09:30', 
+    size: 'M', 
+    progress: 90,
+    price: 55.00
   },
   { 
     id: 'VY-1029', 
     status: 'delivered', 
-    statusLabel: 'Entregue', 
-    from: 'Belo Horizonte, MG', 
-    to: 'Vitória, ES', 
-    date: 'Ontem, 18:30', 
+    statusLabel: 'Concluído', 
+    description: 'Notebook Dell',
+    from: 'Florianópolis, SC', 
+    to: 'Porto Alegre, RS', 
+    date: '2 dias atrás', 
     size: 'G', 
     progress: 100,
-    price: 85.00
-  },
-  { 
-    id: 'VY-0882', 
-    status: 'delivered', 
-    statusLabel: 'Entregue', 
-    from: 'Rio de Janeiro, RJ', 
-    to: 'Niterói, RJ', 
-    date: '12 Out', 
-    size: 'P', 
-    progress: 100,
-    price: 15.00
+    price: 120.00
   }
 ];
 
@@ -101,20 +122,43 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
   }
 
   const filteredShipments = MOCK_SHIPMENTS.filter(s => {
+    // Filtro de abas: 'active' mostra tudo exceto entregue ou cancelado
     const isTabMatch = activeTab === 'active' 
-      ? (s.status === 'searching' || s.status === 'transit')
+      ? (s.status !== 'delivered' && s.status !== 'canceled')
       : (s.status === 'delivered' || s.status === 'canceled');
     
     const isSearchMatch = s.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
                          s.from.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         s.to.toLowerCase().includes(searchQuery.toLowerCase());
+                         s.to.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                         s.description.toLowerCase().includes(searchQuery.toLowerCase());
     
     return isTabMatch && isSearchMatch;
   });
 
+  const getStatusIcon = (status: ShipmentStatus) => {
+    switch (status) {
+      case 'searching': return <UserCheck className="h-5 w-5" />;
+      case 'waiting_pickup': return <PackageOpen className="h-5 w-5" />;
+      case 'transit': return <Truck className="h-5 w-5" />;
+      case 'waiting_delivery': return <MapPinned className="h-5 w-5" />;
+      case 'delivered': return <CheckCircle2 className="h-5 w-5" />;
+      default: return <Package className="h-5 w-5" />;
+    }
+  };
+
+  const getStatusColor = (status: ShipmentStatus) => {
+    switch (status) {
+      case 'searching': return "bg-orange-50 text-orange-600";
+      case 'waiting_pickup': return "bg-blue-50 text-blue-600";
+      case 'transit': return "bg-primary/10 text-primary";
+      case 'waiting_delivery': return "bg-purple-50 text-purple-600";
+      case 'delivered': return "bg-green-50 text-green-600";
+      default: return "bg-muted text-muted-foreground";
+    }
+  };
+
   return (
     <div className="space-y-6 page-transition pb-10">
-      {/* Header com botão de Novo */}
       <div className="flex items-center justify-between pt-2">
         <h1 className="text-2xl font-bold">Meus Envios</h1>
         <Button 
@@ -125,19 +169,17 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         </Button>
       </div>
 
-      {/* Busca e Filtros */}
       <div className="space-y-4">
         <div className="relative group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="Buscar por código ou cidade..." 
+            placeholder="Buscar pacote ou destino..." 
             className="pl-11 h-12 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
 
-        {/* Segmented Control (Padrão Nativo) */}
         <div className="flex p-1 bg-muted/40 rounded-2xl border border-muted">
           <button
             onClick={() => setActiveTab('active')}
@@ -160,20 +202,18 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         </div>
       </div>
 
-      {/* Shipments List */}
       <div className="space-y-4">
         {filteredShipments.length > 0 ? (
           filteredShipments.map((shipment) => (
             <div key={shipment.id} className="relative group active:scale-[0.98] transition-all">
               <div className="bg-white rounded-[2rem] border border-muted p-5 shadow-sm hover:shadow-md transition-all cursor-pointer">
-                {/* Status e Badge */}
                 <div className="flex justify-between items-start mb-4">
                   <div className="flex items-center gap-3">
                     <div className={cn(
-                      "h-10 w-10 rounded-2xl flex items-center justify-center",
-                      shipment.status === 'delivered' ? "bg-green-50 text-green-600" : "bg-primary/5 text-primary"
+                      "h-10 w-10 rounded-2xl flex items-center justify-center transition-colors",
+                      getStatusColor(shipment.status)
                     )}>
-                      {shipment.status === 'delivered' ? <CheckCircle2 className="h-5 w-5" /> : <Package className="h-5 w-5" />}
+                      {getStatusIcon(shipment.status)}
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
@@ -188,7 +228,8 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
                   </Button>
                 </div>
 
-                {/* Rota */}
+                <p className="text-xs text-muted-foreground mb-3 font-medium line-clamp-1">{shipment.description}</p>
+
                 <div className="flex items-center gap-4 mb-4 relative">
                   <div className="flex flex-col items-center gap-1 shrink-0">
                     <div className="h-2 w-2 rounded-full bg-primary/30" />
@@ -205,12 +246,11 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
                   </div>
                 </div>
 
-                {/* Barra de Progresso Customizada */}
                 {activeTab === 'active' && (
                   <div className="space-y-2 mt-4 pt-4 border-t">
                     <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-wider">
                       <span className="text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> Atualizado há 12 min
+                        <Clock className="h-3 w-3" /> Atualizado há pouco
                       </span>
                       <span className="text-primary">{shipment.progress}%</span>
                     </div>
@@ -226,7 +266,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
                 {activeTab === 'history' && (
                   <div className="mt-4 pt-4 border-t flex items-center justify-between">
                     <div className="flex items-center gap-2 text-[11px] font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full">
-                      <CheckCircle2 className="h-3 w-3" /> Entregue com sucesso
+                      <CheckCircle2 className="h-3 w-3" /> Concluído com sucesso
                     </div>
                     <Button variant="ghost" size="sm" className="text-xs font-bold gap-1 text-primary p-0 h-auto">
                       Ver detalhes <ChevronRight className="h-3 w-3" />
