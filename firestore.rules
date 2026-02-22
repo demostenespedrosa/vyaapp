@@ -1,0 +1,189 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * VYA LOGISTICS SECURITY RULES
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset enforces a strict user-ownership model combined with tactical denormalization 
+     * to ensure authorization independence. By copying critical IDs (senderId, travelerId) 
+     * onto child documents, we avoid expensive cross-collection lookups.
+     *
+     * DATA STRUCTURE:
+     * Data is primarily organized under /users/{userId} subcollections for natural 
+     * structural segregation. Global reference data (locations, pricing) and high-level 
+     * tracking (fiscal documents, delivery events) are kept in top-level collections 
+     * but secured via denormalized ownership fields.
+     *
+     * KEY SECURITY DECISIONS:
+     * - Authorization Independence: Documents like Packages and DeliveryEvents contain 
+     *   sufficient metadata to authorize the sender and traveler without extra reads.
+     * - Structural Segregation: Publicly searchable trip data is separated into 
+     *   /available_trips to prevent exposure of sensitive traveler profile data.
+     * - Prototyping Mode: Rules strictly enforce WHO can write but allow flexibility 
+     *   on the shape of the data, provided relational integrity (IDs) is maintained.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/app_roles/admins/$(request.auth.uid));
+    }
+
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    // --- COLLECTION RULES ---
+
+    /**
+     * @description Rules for user profile documents. Users can manage their own profile.
+     * @path /users/{userId}
+     * @allow (create) if auth.uid matches userId.
+     * @deny (update) if auth.uid does not match userId.
+     * @principle Enforces document ownership for user profiles.
+     */
+    match /users/{userId} {
+      allow get, list: if isOwner(userId);
+      allow create: if isOwner(userId) && request.resource.data.id == userId;
+      allow update, delete: if isExistingOwner(userId);
+
+      /**
+       * @description Collection of packages sent by the user. Accessible by sender and denormalized traveler.
+       * @path /users/{senderId}/packages/{packageId} - Note: {senderId} is aliased by {userId} from parent match.
+       * @allow (get) if authenticated user is the sender OR the travelerId stored on the package.
+       * @deny (create) if senderId in path doesn't match authenticated user.
+       * @principle Uses denormalization to allow shared access between sender and traveler.
+       */
+      match /packages/{packageId} {
+        // Corrected: use `userId` from parent match instead of `senderId`
+        allow get: if isOwner(userId) || (isSignedIn() && resource.data.travelerId == request.auth.uid);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.senderId == userId;
+        allow update: if (isOwner(userId) || (isSignedIn() && resource.data.travelerId == request.auth.uid)) && resource != null;
+        allow delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Trips created by a traveler.
+       * @path /users/{travelerId}/trips/{tripId}
+       * @allow (list) if user owns the trip collection.
+       * @principle Strict user-ownership of trip history.
+       */
+      match /trips/{tripId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.travelerId == userId;
+        allow update, delete: if isExistingOwner(userId);
+      }
+
+      /**
+       * @description Financial records for a user's wallet.
+       * @path /users/{userId}/walletTransactions/{transactionId}
+       * @allow (get) if user is the wallet owner.
+       * @principle Private financial data isolation.
+       */
+      match /walletTransactions/{transactionId} {
+        allow get, list: if isOwner(userId);
+        allow create, update, delete: if false; // Transactions managed by server-side logic
+      }
+
+      /**
+       * @description Payout requests for wallet withdrawals.
+       * @path /users/{userId}/payoutRequests/{requestId}
+       * @allow (create) if user is the requester.
+       * @principle User-initiated financial requests.
+       */
+      match /payoutRequests/{requestId} {
+        allow get, list: if isOwner(userId);
+        allow create: if isOwner(userId) && request.resource.data.userId == userId;
+        allow update, delete: if false; // Requests are immutable once sent for processing
+      }
+
+      /**
+       * @description Payments made for package deliveries.
+       * @path /users/{payerId}/payments/{paymentId}
+       * @allow (get) if user is the payer.
+       */
+      match /payments/{paymentId} {
+        allow get, list: if isOwner(userId);
+        allow create, update, delete: if false; // Managed by payment gateway hooks
+      }
+    }
+
+    /**
+     * @description System admin definitions. Read-only for the user themselves.
+     * @path /app_roles/admins/{userId}
+     */
+    match /app_roles/admins/{userId} {
+      allow get: if isOwner(userId);
+      allow list, write: if false;
+    }
+
+    /**
+     * @description Publicly readable geographic reference points.
+     * @path /locations/{locationId}
+     * @allow (get, list) if any user is signed in.
+     * @principle Global reference data access.
+     */
+    match /locations/{locationId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Publicly readable pricing structure.
+     * @path /pricing_rules/{ruleId}
+     * @allow (get, list) if any user is signed in.
+     */
+    match /pricing_rules/{ruleId} {
+      allow get, list: if isSignedIn();
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Fiscal documents secured by denormalized senderId.
+     * @path /fiscal_documents/{docId}
+     * @allow (get) if the user's UID matches the senderId field.
+     * @principle Field-based ownership for top-level collections.
+     */
+    match /fiscal_documents/{docId} {
+      allow get, list: if isSignedIn() && resource.data.senderId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.senderId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.senderId == request.auth.uid && resource != null;
+    }
+
+    /**
+     * @description Searchable trip summaries for package senders.
+     * @path /available_trips/{tripId}
+     * @allow (list) if signed in.
+     * @principle Structural segregation for searchable data.
+     */
+    match /available_trips/{tripId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn() && request.resource.data.travelerId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.travelerId == request.auth.uid && resource != null;
+    }
+
+    /**
+     * @description Delivery events for tracking. Accessible by sender, traveler, or via QR code.
+     * @path /delivery_events/{eventId}
+     * @allow (get) if user is sender, traveler, or provides valid qrCodeValue.
+     * @principle Multi-party access control via denormalized relationship fields.
+     */
+    match /delivery_events/{eventId} {
+      allow get: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.currentTripTravelerId == request.auth.uid || (request.query.limit == 1 && request.params.qrCodeValue == resource.data.qrCodeValue));
+      allow list: if isSignedIn() && (resource.data.senderId == request.auth.uid || resource.data.currentTripTravelerId == request.auth.uid);
+      allow create: if isSignedIn() && (request.resource.data.senderId == request.auth.uid || request.resource.data.currentTripTravelerId == request.auth.uid);
+      allow update, delete: if false; // Events are immutable audit logs
+    }
+  }
+}

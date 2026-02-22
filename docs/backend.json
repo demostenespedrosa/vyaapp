@@ -1,0 +1,919 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user in the VYA application, capable of acting as both a sender and a traveler.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The full name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The user's email address, used for communication.",
+          "format": "email"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The user's primary phone number, including country code if applicable."
+        },
+        "documentNumber": {
+          "type": "string",
+          "description": "The user's national identification document number (e.g., CPF or CNPJ in Brazil), required for fiscal and payment processes."
+        },
+        "birthDate": {
+          "type": "string",
+          "description": "The user's date of birth.",
+          "format": "date"
+        },
+        "profileImageUrl": {
+          "type": "string",
+          "description": "URL to the user's profile image.",
+          "format": "uri"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the user account was last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "phone",
+        "documentNumber",
+        "createdAt"
+      ]
+    },
+    "Location": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Location",
+      "type": "object",
+      "description": "Represents a geographic point, such as a bus terminal, gas station, or any general meeting point, used for package origin, destination, or handover.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Location entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "A descriptive name for the location (e.g., 'Terminal Rodoviário Tietê', 'Posto Ipiranga BR-101 Km 250')."
+        },
+        "addressLine1": {
+          "type": "string",
+          "description": "The primary street address of the location."
+        },
+        "addressLine2": {
+          "type": "string",
+          "description": "Secondary address information, such as building number, suite, or reference points."
+        },
+        "neighborhood": {
+          "type": "string",
+          "description": "The neighborhood or district where the location is situated."
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the location is situated."
+        },
+        "state": {
+          "type": "string",
+          "description": "The state or province where the location is situated."
+        },
+        "zipCode": {
+          "type": "string",
+          "description": "The postal code for the location."
+        },
+        "latitude": {
+          "type": "number",
+          "description": "The latitude coordinate of the location."
+        },
+        "longitude": {
+          "type": "number",
+          "description": "The longitude coordinate of the location."
+        },
+        "type": {
+          "type": "string",
+          "description": "The category of the location (e.g., 'BusTerminal', 'GasStation', 'GeneralMeetingPoint').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "description": {
+          "type": "string",
+          "description": "Additional descriptive details about the location, e.g., 'Ponto de encontro na entrada principal'."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "addressLine1",
+        "neighborhood",
+        "city",
+        "state",
+        "zipCode",
+        "latitude",
+        "longitude",
+        "type"
+      ]
+    },
+    "Package": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Package",
+      "type": "object",
+      "description": "Represents a single package being sent through the VYA platform.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Package entity."
+        },
+        "senderId": {
+          "type": "string",
+          "description": "Reference to the User who is sending the package. (Relationship: User 1:N Package)"
+        },
+        "recipientName": {
+          "type": "string",
+          "description": "The full name of the package recipient."
+        },
+        "recipientPhone": {
+          "type": "string",
+          "description": "The phone number of the package recipient."
+        },
+        "originLocationId": {
+          "type": "string",
+          "description": "Reference to the Location where the package will be picked up by the traveler. (Relationship: Location 1:N Package)"
+        },
+        "destinationLocationId": {
+          "type": "string",
+          "description": "Reference to the Location where the package will be delivered to the recipient. (Relationship: Location 1:N Package)"
+        },
+        "packageSize": {
+          "type": "string",
+          "description": "The visual size classification of the package ('P' for Pequeno, 'M' for Médio, 'G' for Grande).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "declaredValue": {
+          "type": "number",
+          "description": "The declared value of the package contents for insurance/fiscal purposes."
+        },
+        "fiscalDocumentId": {
+          "type": "string",
+          "description": "Reference to the FiscalDocument associated with this package. (Relationship: FiscalDocument 1:1 Package)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the package throughout its lifecycle (e.g., 'PendingPayment', 'InTransit', 'Delivered').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "trackingCode": {
+          "type": "string",
+          "description": "A unique code for tracking the package's journey."
+        },
+        "deliveryFee": {
+          "type": "number",
+          "description": "The total fee charged to the sender for this package delivery."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the package entry was created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the package entry was last updated.",
+          "format": "date-time"
+        },
+        "currentTripId": {
+          "type": "string",
+          "description": "Reference to the current Trip carrying this package. Null if not yet assigned to a trip. (Relationship: Trip 1:N Package)"
+        },
+        "paymentId": {
+          "type": "string",
+          "description": "Reference to the Payment transaction for this package. (Relationship: Payment 1:1 Package)"
+        },
+        "qrCodeValue": {
+          "type": "string",
+          "description": "The string value used to generate the QR code for package identification and handover confirmation."
+        }
+      },
+      "required": [
+        "id",
+        "senderId",
+        "recipientName",
+        "recipientPhone",
+        "originLocationId",
+        "destinationLocationId",
+        "packageSize",
+        "declaredValue",
+        "fiscalDocumentId",
+        "status",
+        "trackingCode",
+        "deliveryFee",
+        "createdAt",
+        "paymentId",
+        "qrCodeValue"
+      ]
+    },
+    "FiscalDocument": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FiscalDocument",
+      "type": "object",
+      "description": "Stores details about the mandatory fiscal document (NF-e or Declaração de Conteúdo) for a package, ensuring legal compliance.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the FiscalDocument entity."
+        },
+        "packageId": {
+          "type": "string",
+          "description": "Reference to the Package associated with this fiscal document. (Relationship: Package 1:1 FiscalDocument)"
+        },
+        "documentType": {
+          "type": "string",
+          "description": "The type of fiscal document ('NFE' for Nota Fiscal Eletrônica, 'DeclaracaoDeConteudo' for Declaration of Content).",
+          "items": {
+            "type": "string"
+          }
+        },
+        "documentNumber": {
+          "type": "string",
+          "description": "The official number of the fiscal document."
+        },
+        "documentUrl": {
+          "type": "string",
+          "description": "URL to the uploaded or generated fiscal document file.",
+          "format": "uri"
+        },
+        "contentDescription": {
+          "type": "string",
+          "description": "A description of the contents listed in the fiscal document."
+        },
+        "senderDocumentNumber": {
+          "type": "string",
+          "description": "The CPF/CNPJ of the sender as stated on the fiscal document."
+        },
+        "recipientDocumentNumber": {
+          "type": "string",
+          "description": "The CPF/CNPJ of the recipient as stated on the fiscal document."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the fiscal document record was created.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "packageId",
+        "documentType",
+        "documentNumber",
+        "documentUrl",
+        "contentDescription",
+        "senderDocumentNumber",
+        "recipientDocumentNumber",
+        "createdAt"
+      ]
+    },
+    "Trip": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Trip",
+      "type": "object",
+      "description": "Represents a traveler's declared journey, indicating their route and capacity to carry packages.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Trip entity."
+        },
+        "travelerId": {
+          "type": "string",
+          "description": "Reference to the User who is undertaking this trip. (Relationship: User 1:N Trip)"
+        },
+        "originLocationId": {
+          "type": "string",
+          "description": "Reference to the Location where the trip originates. (Relationship: Location 1:N Trip)"
+        },
+        "destinationLocationId": {
+          "type": "string",
+          "description": "Reference to the Location where the trip ends. (Relationship: Location 1:N Trip)"
+        },
+        "departureDateTime": {
+          "type": "string",
+          "description": "The planned date and time of departure for the trip.",
+          "format": "date-time"
+        },
+        "estimatedArrivalDateTime": {
+          "type": "string",
+          "description": "The estimated date and time of arrival for the trip.",
+          "format": "date-time"
+        },
+        "transportModal": {
+          "type": "string",
+          "description": "The mode of transport for the trip ('Car', 'Motorcycle', 'IntermunicipalBus').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "maxPackageSizeAllowed": {
+          "type": "string",
+          "description": "The maximum package size (P, M, G) that this traveler can carry on this trip, constrained by modal (e.g., 'Motorcycle' cannot carry 'G').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "availableWeightCapacityKg": {
+          "type": "number",
+          "description": "The remaining weight capacity (in kilograms) available for packages on this trip."
+        },
+        "availableVolumeCapacityCubicMeters": {
+          "type": "number",
+          "description": "The remaining volume capacity (in cubic meters) available for packages on this trip."
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the trip (e.g., 'Scheduled', 'Active', 'Completed', 'FindingPackages').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "assignedPackageIds": {
+          "type": "array",
+          "description": "References to Packages that have been assigned to this trip. (Relationship: Trip 1:N Package)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when the trip was scheduled.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp when the trip details were last updated.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "travelerId",
+        "originLocationId",
+        "destinationLocationId",
+        "departureDateTime",
+        "estimatedArrivalDateTime",
+        "transportModal",
+        "maxPackageSizeAllowed",
+        "availableWeightCapacityKg",
+        "availableVolumeCapacityCubicMeters",
+        "status",
+        "createdAt"
+      ]
+    },
+    "Payment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Payment",
+      "type": "object",
+      "description": "Records details of a payment transaction made by a sender for a package delivery.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Payment entity."
+        },
+        "packageId": {
+          "type": "string",
+          "description": "Reference to the Package for which this payment was made. (Relationship: Package 1:1 Payment)"
+        },
+        "payerId": {
+          "type": "string",
+          "description": "Reference to the User (sender) who made this payment. (Relationship: User 1:N Payment)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The total amount paid by the sender for the package delivery."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the payment (e.g., 'BRL')."
+        },
+        "paymentMethod": {
+          "type": "string",
+          "description": "The method used for payment ('PIX', 'CreditCard').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "platformFeePercentage": {
+          "type": "number",
+          "description": "The percentage of the amount kept by the VYA platform as a service fee (e.g., 20%)."
+        },
+        "gatewayFeeAmount": {
+          "type": "number",
+          "description": "Any additional transaction fees charged by the payment gateway, if applicable and passed to the sender (e.g., for Credit Card payments)."
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the payment ('Pending', 'Paid', 'Failed', 'Refunded').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "paidAt": {
+          "type": "string",
+          "description": "Timestamp when the payment was successfully processed.",
+          "format": "date-time"
+        },
+        "externalTransactionId": {
+          "type": "string",
+          "description": "The transaction ID provided by the external payment gateway (e.g., PIX ID, Credit Card transaction ID)."
+        },
+        "travelerPayoutWalletTransactionId": {
+          "type": "string",
+          "description": "Reference to the WalletTransaction that credits the traveler for this package's delivery. (Relationship: WalletTransaction 1:1 Payment)"
+        }
+      },
+      "required": [
+        "id",
+        "packageId",
+        "payerId",
+        "amount",
+        "currency",
+        "paymentMethod",
+        "platformFeePercentage",
+        "status",
+        "paidAt",
+        "externalTransactionId"
+      ]
+    },
+    "WalletTransaction": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "WalletTransaction",
+      "type": "object",
+      "description": "Records all financial movements within a user's VYA Wallet, including credits from deliveries, debits for sending packages, and withdrawals.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the WalletTransaction entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User whose wallet this transaction affects. (Relationship: User 1:N WalletTransaction)"
+        },
+        "type": {
+          "type": "string",
+          "description": "The type of transaction ('Credit', 'Debit', 'Withdrawal').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "amount": {
+          "type": "number",
+          "description": "The monetary amount of the transaction."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the transaction (e.g., 'BRL')."
+        },
+        "description": {
+          "type": "string",
+          "description": "A descriptive text for the transaction (e.g., 'Earnings for delivery #XYZ', 'Payment for package #ABC', 'Withdrawal')."
+        },
+        "relatedEntityId": {
+          "type": "string",
+          "description": "Reference to the entity that triggered or is associated with this transaction (e.g., Package ID, Payment ID, PayoutRequest ID)."
+        },
+        "transactionDateTime": {
+          "type": "string",
+          "description": "Timestamp when the transaction occurred.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The status of the wallet transaction ('Completed', 'Pending', 'Failed').",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "type",
+        "amount",
+        "currency",
+        "description",
+        "transactionDateTime",
+        "status"
+      ]
+    },
+    "PayoutRequest": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PayoutRequest",
+      "type": "object",
+      "description": "Represents a request made by a traveler to withdraw funds from their VYA Wallet to an external account.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PayoutRequest entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who initiated the payout request. (Relationship: User 1:N PayoutRequest)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount requested for withdrawal."
+        },
+        "currency": {
+          "type": "string",
+          "description": "The currency of the withdrawal amount (e.g., 'BRL')."
+        },
+        "requestDateTime": {
+          "type": "string",
+          "description": "Timestamp when the payout request was submitted.",
+          "format": "date-time"
+        },
+        "processedDateTime": {
+          "type": "string",
+          "description": "Timestamp when the payout request was processed. Null if still pending.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the payout request ('Pending', 'Processed', 'Failed').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pixKeyType": {
+          "type": "string",
+          "description": "The type of PIX key provided for the payout ('CPF', 'CNPJ', 'Email', 'PhoneNumber', 'RandomKey').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "pixKeyValue": {
+          "type": "string",
+          "description": "The value of the PIX key (e.g., the CPF number, email address, etc.)."
+        },
+        "walletTransactionId": {
+          "type": "string",
+          "description": "Reference to the WalletTransaction that debited the amount from the user's wallet for this payout. (Relationship: WalletTransaction 1:1 PayoutRequest)"
+        }
+      },
+      "required": [
+        "id",
+        "userId",
+        "amount",
+        "currency",
+        "requestDateTime",
+        "status",
+        "pixKeyType",
+        "pixKeyValue",
+        "walletTransactionId"
+      ]
+    },
+    "PricingRule": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "PricingRule",
+      "type": "object",
+      "description": "Defines the fixed pricing structure for package deliveries based on package size and distance zone.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the PricingRule entity."
+        },
+        "packageSize": {
+          "type": "string",
+          "description": "The visual size classification this rule applies to ('P', 'M', 'G').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "distanceZoneName": {
+          "type": "string",
+          "description": "The name of the distance zone ('Zona Curta', 'Zona Média', 'Zona Longa').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "minDistanceKm": {
+          "type": "number",
+          "description": "The minimum distance in kilometers for this pricing zone."
+        },
+        "maxDistanceKm": {
+          "type": "number",
+          "description": "The maximum distance in kilometers for this pricing zone. Null if it's an 'unlimited' or 'longa' zone."
+        },
+        "price": {
+          "type": "number",
+          "description": "The fixed price for a package of the specified size within this distance zone."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief description of this pricing rule."
+        }
+      },
+      "required": [
+        "id",
+        "packageSize",
+        "distanceZoneName",
+        "minDistanceKm",
+        "price",
+        "description"
+      ]
+    },
+    "DeliveryEvent": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "DeliveryEvent",
+      "type": "object",
+      "description": "Tracks significant events during a package's delivery journey, enabling real-time tracking and behavioral alerts.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the DeliveryEvent entity."
+        },
+        "packageId": {
+          "type": "string",
+          "description": "Reference to the Package related to this event. (Relationship: Package 1:N DeliveryEvent)"
+        },
+        "tripId": {
+          "type": "string",
+          "description": "Reference to the Trip associated with this event, if applicable. (Relationship: Trip 1:N DeliveryEvent)"
+        },
+        "eventType": {
+          "type": "string",
+          "description": "The type of event that occurred (e.g., 'PackagePickedUpByTraveler', 'TravelerAtMeetingPoint', 'PackageDeliveredToRecipient').",
+          "items": {
+            "type": "string"
+          }
+        },
+        "eventDateTime": {
+          "type": "string",
+          "description": "Timestamp when the event occurred.",
+          "format": "date-time"
+        },
+        "locationId": {
+          "type": "string",
+          "description": "Reference to the Location where the event took place. (Relationship: Location 1:N DeliveryEvent)"
+        },
+        "details": {
+          "type": "string",
+          "description": "Additional descriptive details or notes about the event."
+        },
+        "triggeredByUserId": {
+          "type": "string",
+          "description": "Reference to the User who triggered or confirmed this event (e.g., traveler confirming pickup, recipient confirming delivery). (Relationship: User 1:N DeliveryEvent)"
+        },
+        "qrCodeConfirmed": {
+          "type": "boolean",
+          "description": "Indicates if the event was confirmed by scanning a QR code."
+        }
+      },
+      "required": [
+        "id",
+        "packageId",
+        "eventType",
+        "eventDateTime",
+        "locationId",
+        "triggeredByUserId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Collection for individual user profiles. Access is restricted to the authenticated user matching the {userId} wildcard.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user, matching request.auth.uid."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/app_roles/admins/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Collection to define administrative roles using Database Access Control (DBAC). Existence of a document here for a specific userId grants admin privileges. No custom claims are used.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who has an admin role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/locations/{locationId}",
+        "definition": {
+          "entityName": "Location",
+          "schema": {
+            "$ref": "#/backend/entities/Location"
+          },
+          "description": "Globally accessible collection of predefined geographic points (bus terminals, gas stations). Read-only for all authenticated users; typically admin-managed for CUD operations.",
+          "params": [
+            {
+              "name": "locationId",
+              "description": "The unique identifier for a specific location."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/pricing_rules/{pricingRuleId}",
+        "definition": {
+          "entityName": "PricingRule",
+          "schema": {
+            "$ref": "#/backend/entities/PricingRule"
+          },
+          "description": "Globally accessible collection of fixed pricing rules based on package size and distance zones. Read-only for all authenticated users; typically admin-managed.",
+          "params": [
+            {
+              "name": "pricingRuleId",
+              "description": "The unique identifier for a specific pricing rule."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{senderId}/packages/{packageId}",
+        "definition": {
+          "entityName": "Package",
+          "schema": {
+            "$ref": "#/backend/entities/Package"
+          },
+          "description": "Collection of packages sent by a specific user. Includes denormalized 'travelerId' and 'currentTripId' for authorization independence, allowing the sender or assigned traveler to access the package directly. Also includes 'qrCodeValue' for public tracking and handover.",
+          "params": [
+            {
+              "name": "senderId",
+              "description": "The unique identifier of the user who is the sender of the package."
+            },
+            {
+              "name": "packageId",
+              "description": "The unique identifier for a specific package."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/fiscal_documents/{fiscalDocumentId}",
+        "definition": {
+          "entityName": "FiscalDocument",
+          "schema": {
+            "$ref": "#/backend/entities/FiscalDocument"
+          },
+          "description": "Top-level collection for fiscal documents. Includes denormalized 'senderId' from the associated package for authorization independence, ensuring only the sender can access their fiscal document.",
+          "params": [
+            {
+              "name": "fiscalDocumentId",
+              "description": "The unique identifier for a specific fiscal document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{travelerId}/trips/{tripId}",
+        "definition": {
+          "entityName": "Trip",
+          "schema": {
+            "$ref": "#/backend/entities/Trip"
+          },
+          "description": "Collection of trips created by a specific traveler. Access is restricted to the authenticated user matching the {travelerId} wildcard.",
+          "params": [
+            {
+              "name": "travelerId",
+              "description": "The unique identifier of the user who is the traveler for this trip."
+            },
+            {
+              "name": "tripId",
+              "description": "The unique identifier for a specific trip."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/available_trips/{tripId}",
+        "definition": {
+          "entityName": "Trip",
+          "schema": {
+            "$ref": "#/backend/entities/Trip"
+          },
+          "description": "A denormalized, publicly readable collection containing a subset of 'Trip' data (origin, destination, departure, capacity) that is available for senders to search for. When a trip is no longer available (e.g., status changes), it's removed from this collection. Includes 'travelerId' for internal rule validation.",
+          "params": [
+            {
+              "name": "tripId",
+              "description": "The unique identifier for a specific available trip."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{payerId}/payments/{paymentId}",
+        "definition": {
+          "entityName": "Payment",
+          "schema": {
+            "$ref": "#/backend/entities/Payment"
+          },
+          "description": "Collection of payments made by a specific user (sender). Access is restricted to the authenticated user matching the {payerId} wildcard.",
+          "params": [
+            {
+              "name": "payerId",
+              "description": "The unique identifier of the user who made the payment."
+            },
+            {
+              "name": "paymentId",
+              "description": "The unique identifier for a specific payment transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/walletTransactions/{walletTransactionId}",
+        "definition": {
+          "entityName": "WalletTransaction",
+          "schema": {
+            "$ref": "#/backend/entities/WalletTransaction"
+          },
+          "description": "Collection of financial transactions within a user's VYA Wallet. Access is restricted to the authenticated user matching the {userId} wildcard.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user whose wallet this transaction affects."
+            },
+            {
+              "name": "walletTransactionId",
+              "description": "The unique identifier for a specific wallet transaction."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/users/{userId}/payoutRequests/{payoutRequestId}",
+        "definition": {
+          "entityName": "PayoutRequest",
+          "schema": {
+            "$ref": "#/backend/entities/PayoutRequest"
+          },
+          "description": "Collection of payout requests initiated by a specific user. Access is restricted to the authenticated user matching the {userId} wildcard.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who initiated the payout request."
+            },
+            {
+              "name": "payoutRequestId",
+              "description": "The unique identifier for a specific payout request."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/delivery_events/{deliveryEventId}",
+        "definition": {
+          "entityName": "DeliveryEvent",
+          "schema": {
+            "$ref": "#/backend/entities/DeliveryEvent"
+          },
+          "description": "Top-level collection for all delivery events. Includes denormalized 'packageId', 'senderId', 'currentTripTravelerId', and 'qrCodeValue' for authorization independence. This allows senders, travelers, and public recipients (via QR code) to access relevant tracking events directly without complex lookups.",
+          "params": [
+            {
+              "name": "deliveryEventId",
+              "description": "The unique identifier for a specific delivery event."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The VYA Logistics Firestore structure is designed with a strong emphasis on Authorization Independence, Structural Segregation, and adherence to QAPs (Query As Permissions). This strategy minimizes complex security rules and ensures data integrity and scalability.\n\n**Authorization Independence via Denormalization:**\n*   **User-Owned Data:** Core entities like `User`, `Payment`, `WalletTransaction`, and `PayoutRequest` are stored in user-specific subcollections (`/users/{userId}/...`). This ensures that `request.auth.uid` can directly validate ownership against the path parameter, eliminating the need for `get()` calls to parent user documents.\n*   **Package Access:** A `Package` document (`/users/{senderId}/packages/{packageId}`) explicitly includes `senderId` and, critically, denormalizes `travelerId` and `currentTripId` when assigned to a trip. This allows security rules to evaluate access for both sender and current traveler directly from the document itself (`resource.data.senderId` or `resource.data.travelerId`) without fetching the associated `Trip` document. This also enables atomic operations for package creation and assignment.\n*   **FiscalDocument:** Stored in a top-level collection (`/fiscal_documents/{fiscalDocumentId}`), each document denormalizes `senderId` from its associated `Package`. This allows direct rule validation based on `resource.data.senderId`, avoiding a `get()` call to the parent `Package` or `User` to determine ownership.\n*   **DeliveryEvent:** These events, crucial for tracking, are in a top-level collection (`/delivery_events/{deliveryEventId}`). Each event document denormalizes `packageId`, `senderId`, `currentTripTravelerId` (from the trip carrying the package), and `qrCodeValue` (from the package). This enables direct, efficient rule evaluation for sender, traveler, and public tracking via `qrCodeValue` without expensive `get()` calls to related entities.\n\n**QAPs (Rules are not Filters) through Structural Segregation:**\n*   **User-Specific Collections:** Collections like `/users/{userId}/packages`, `/users/{userId}/payments`, `/users/{userId}/trips`, etc., naturally enforce QAPs. A `list` operation on these paths inherently filters data to what the authenticated `userId` is authorized to see.\n*   **Public/Reference Data:** `locations` and `pricing_rules` are designed as globally readable collections. This means `list` operations on these collections are allowed for all authenticated users, as their content is non-sensitive and serves as application reference data.\n*   **Searchable/Available Data:** The `/available_trips/{tripId}` collection is a denormalized view specifically for senders to search for compatible trips. It contains only public-facing details and includes `travelerId` for secure internal rule validation. This segregation allows for `list` queries without exposing private traveler data or requiring complex filtering in rules.\n*   **Public Tracking:** The `delivery_events` collection supports public tracking. Rules can be written to allow reads based on `qrCodeValue` (which would be provided by the recipient), while restricting access to sensitive fields. For senders and travelers, `list` queries can be scoped by `senderId` or `currentTripTravelerId`, ensuring QAPs for authorized users."
+  }
+}
