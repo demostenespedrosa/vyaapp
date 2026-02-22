@@ -28,7 +28,9 @@ import {
   X,
   Route,
   ShieldAlert,
-  Info
+  Info,
+  User,
+  Phone
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -38,6 +40,9 @@ const formSchema = z.object({
   origin: z.string().min(3, "Onde o viajante retira?"),
   destination: z.string().min(3, "Onde entregamos?"),
   size: z.enum(["P", "M", "G"]),
+  recipientName: z.string().min(3, "Nome do destinatário é obrigatório"),
+  recipientPhone: z.string().min(10, "Telefone/WhatsApp inválido"),
+  recipientCpf: z.string().min(11, "CPF deve ter pelo menos 11 dígitos"),
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -89,6 +94,9 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       origin: "",
       destination: "",
       size: "P",
+      recipientName: "",
+      recipientPhone: "",
+      recipientCpf: "",
     },
   });
 
@@ -203,6 +211,9 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
         const base64 = reader.result as string;
         const result = await extractFiscalDocumentData({ documentDataUri: base64 });
         setFiscalInfo(result);
+        if (result.recipient) {
+          form.setValue("recipientName", result.recipient.name);
+        }
         toast({ title: "Documento lido!", description: "Dados extraídos com sucesso." });
       };
       reader.readAsDataURL(file);
@@ -220,8 +231,17 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       toast({ variant: "destructive", title: "Ops!", description: "Selecione a origem e o destino da lista." });
       return;
     }
-    const fields = step === 1 ? ["description", "size"] : step === 2 ? ["origin", "destination"] : [];
-    const isValid = await form.trigger(fields as any);
+    
+    let fieldsToValidate: any[] = [];
+    switch (step) {
+      case 1: fieldsToValidate = ["description", "size"]; break;
+      case 2: fieldsToValidate = ["origin", "destination"]; break;
+      case 3: fieldsToValidate = []; break; // Fiscal info validado pelo estado fiscalInfo
+      case 4: fieldsToValidate = ["recipientName", "recipientPhone", "recipientCpf"]; break;
+      default: fieldsToValidate = [];
+    }
+    
+    const isValid = fieldsToValidate.length > 0 ? await form.trigger(fieldsToValidate) : true;
     if (isValid) setStep(step + 1);
   };
 
@@ -232,7 +252,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     setTimeout(() => onComplete(), 2000);
   };
 
-  const progress = (step / 4) * 100;
+  const progress = (step / 5) * 100;
 
   // Cálculos de preço
   const baseFreight = calculatePrice(form.getValues("size"), calculatedDistance);
@@ -245,7 +265,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     <div className="space-y-6 pb-20 page-transition">
       <div className="space-y-2">
         <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          <span>Passo {step} de 4</span>
+          <span>Passo {step} de 5</span>
           <span>{Math.round(progress)}% Concluído</span>
         </div>
         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -502,13 +522,81 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <Button type="button" onClick={nextStep} disabled={!fiscalInfo || isExtracting} className="flex-1 h-14 rounded-2xl text-base font-bold">
-                  Ver Resumo
+                  Continuar
                 </Button>
               </div>
             </div>
           )}
 
           {step === 4 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold">Quem recebe? 🤝</h2>
+                <p className="text-sm text-muted-foreground">Precisamos dos dados de quem vai retirar a encomenda.</p>
+              </div>
+
+              <div className="space-y-4">
+                <FormField
+                  name="recipientName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Nome Completo</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="Nome de quem recebe" className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  name="recipientPhone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">WhatsApp / Telefone</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <Phone className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="(00) 00000-0000" className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  name="recipientCpf"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">CPF do Destinatário</FormLabel>
+                      <FormControl>
+                        <div className="relative">
+                          <ShieldCheck className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                          <Input placeholder="000.000.000-00" className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20" {...field} />
+                        </div>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex gap-3">
+                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30">
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl text-base font-bold">
+                  Ver Resumo
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 5 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-10">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Resumo e Pagamento 🏁</h2>
