@@ -35,7 +35,7 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
         </div>
       </header>
 
-      {/* Card de Ação Herói (Substitui a busca) */}
+      {/* Card de Ação Herói (Foco Único) */}
       <section>
         {mode === 'sender' ? (
           <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white shadow-2xl shadow-primary/20 overflow-hidden relative group active:scale-[0.98] transition-all">
@@ -44,7 +44,7 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
             </div>
             <CardContent className="p-8 relative z-10 space-y-6">
               <div className="space-y-2">
-                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-1">NOVO NO APP</Badge>
+                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-1">DÊ O PRIMEIRO PASSO</Badge>
                 <h2 className="text-2xl font-bold leading-tight tracking-tight">
                   Precisa mandar algo pra ontem? 📦
                 </h2>
@@ -53,14 +53,9 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
                 </p>
               </div>
               
-              <div className="flex flex-col gap-3">
-                <Button className="w-full h-14 rounded-2xl bg-white text-primary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
-                  <Calculator className="h-5 w-5" /> Fazer uma cotação
-                </Button>
-                <Button variant="ghost" className="w-full h-12 rounded-2xl text-white font-bold hover:bg-white/10 text-sm gap-2">
-                  Enviar pacote agora <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button className="w-full h-14 rounded-2xl bg-white text-primary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
+                Enviar pacote agora <ArrowRight className="h-5 w-5" />
+              </Button>
             </CardContent>
           </Card>
         ) : (
@@ -70,7 +65,7 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
             </div>
             <CardContent className="p-8 relative z-10 space-y-6">
               <div className="space-y-2">
-                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-1">OPORTUNIDADE</Badge>
+                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-1">FAÇA GRANA EXTRA</Badge>
                 <h2 className="text-2xl font-bold leading-tight tracking-tight">
                   Vai pegar a estrada hoje? 🚗
                 </h2>
@@ -79,14 +74,9 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
                 </p>
               </div>
               
-              <div className="flex flex-col gap-3">
-                <Button className="w-full h-14 rounded-2xl bg-white text-secondary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
-                  <Sparkles className="h-5 w-5" /> Cadastrar Viagem
-                </Button>
-                <Button variant="ghost" className="w-full h-12 rounded-2xl text-white font-bold hover:bg-white/10 text-sm gap-2">
-                  Ver pacotes na rota <ArrowRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button className="w-full h-14 rounded-2xl bg-white text-secondary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
+                Cadastrar minha viagem <ArrowRight className="h-5 w-5" />
+              </Button>
             </CardContent>
           </Card>
         )}
