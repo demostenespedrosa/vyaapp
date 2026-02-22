@@ -1,13 +1,18 @@
 
 "use client";
 
-import { Bell, ArrowRight, Calculator, Package, ShieldCheck, Zap, Sparkles } from "lucide-react";
+import { Bell, ArrowRight, Package, ShieldCheck, Zap } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
+interface HomeDashboardProps {
+  mode: 'sender' | 'traveler';
+  onAction?: () => void;
+}
+
+export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   const userName = "Lucas"; // Mock
 
   return (
@@ -53,7 +58,10 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
                 </p>
               </div>
               
-              <Button className="w-full h-14 rounded-2xl bg-white text-primary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
+              <Button 
+                onClick={onAction}
+                className="w-full h-14 rounded-2xl bg-white text-primary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5"
+              >
                 Enviar pacote agora <ArrowRight className="h-5 w-5" />
               </Button>
             </CardContent>
@@ -74,7 +82,10 @@ export function HomeDashboard({ mode }: { mode: 'sender' | 'traveler' }) {
                 </p>
               </div>
               
-              <Button className="w-full h-14 rounded-2xl bg-white text-secondary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5">
+              <Button 
+                onClick={onAction}
+                className="w-full h-14 rounded-2xl bg-white text-secondary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5"
+              >
                 Cadastrar minha viagem <ArrowRight className="h-5 w-5" />
               </Button>
             </CardContent>

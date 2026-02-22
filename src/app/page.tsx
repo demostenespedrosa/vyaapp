@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -14,22 +15,45 @@ import { Settings, Shield, CreditCard, LogOut, ChevronRight } from "lucide-react
 export default function Home() {
   const [activeTab, setActiveTab] = useState('home');
   const [mode, setMode] = useState<'sender' | 'traveler'>('sender');
+  const [senderStartCreating, setSenderStartCreating] = useState(false);
 
   // Garantir que a aba ativa seja válida ao trocar de modo
   useEffect(() => {
     if (mode === 'sender' && (activeTab === 'action' || activeTab === 'wallet')) {
       setActiveTab('home');
     }
+    // Resetar gatilho de criação ao trocar de modo
+    setSenderStartCreating(false);
   }, [mode, activeTab]);
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    // Se navegou para qualquer lugar fora de "activity" pelo menu, reseta o gatilho de criação automática
+    if (tab !== 'activity') {
+      setSenderStartCreating(false);
+    }
+  };
+
+  const handleHomeAction = () => {
+    if (mode === 'sender') {
+      setSenderStartCreating(true);
+      setActiveTab('activity');
+    } else {
+      setActiveTab('action');
+    }
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'home':
-        return <HomeDashboard mode={mode} />;
+        return <HomeDashboard mode={mode} onAction={handleHomeAction} />;
       case 'activity':
-        return mode === 'sender' ? <SenderView /> : <TravelerView />;
+        return mode === 'sender' ? (
+          <SenderView initialIsCreating={senderStartCreating} />
+        ) : (
+          <TravelerView />
+        );
       case 'action':
-        // Apenas para viajante no bottom nav, mas o Sender pode chegar aqui via SenderView
         return mode === 'sender' ? <SenderView initialIsCreating={true} /> : <div className="p-8 text-center font-bold">Fluxo de Nova Viagem em breve!</div>;
       case 'wallet':
         return (
@@ -121,7 +145,7 @@ export default function Home() {
           </div>
         );
       default:
-        return <HomeDashboard mode={mode} />;
+        return <HomeDashboard mode={mode} onAction={handleHomeAction} />;
     }
   };
 
@@ -134,7 +158,7 @@ export default function Home() {
         </div>
       </main>
 
-      <BottomNav mode={mode} activeTab={activeTab} onTabChange={setActiveTab} />
+      <BottomNav mode={mode} activeTab={activeTab} onTabChange={handleTabChange} />
     </div>
   );
 }
