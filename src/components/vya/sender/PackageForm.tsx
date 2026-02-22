@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import { SIZES, SizeKey, calculatePrice } from "@/lib/constants";
 import { 
   Loader2, 
@@ -25,7 +26,9 @@ import {
   CreditCard,
   Search,
   X,
-  Route
+  Route,
+  ShieldAlert,
+  Info
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +68,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [aiSuggestion, setAiSuggestion] = useState<any>(null);
   const [fiscalInfo, setFiscalInfo] = useState<any>(null);
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
+  const [withInsurance, setWithInsurance] = useState(true);
 
   // States para busca de endereço
   const [originResults, setOriginResults] = useState<OsmLocation[]>([]);
@@ -175,15 +179,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       }
     } catch (e) {
       console.error("Erro ao calcular rota rodoviária:", e);
-      // Fallback simples
-      const R = 6371;
-      const dLat = (parseFloat(dest.lat) - parseFloat(origin.lat)) * (Math.PI / 180);
-      const dLon = (parseFloat(dest.lon) - parseFloat(origin.lon)) * (Math.PI / 180);
-      const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                Math.cos(parseFloat(origin.lat) * (Math.PI / 180)) * Math.cos(parseFloat(dest.lat) * (Math.PI / 180)) * 
-                Math.sin(dLon / 2) * Math.sin(dLon / 2);
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-      setCalculatedDistance((R * c) * 1.3); 
+      setCalculatedDistance(100); // Fallback mock
     } finally {
       setIsCalculatingRoute(false);
     }
@@ -237,6 +233,13 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   };
 
   const progress = (step / 4) * 100;
+
+  // Cálculos de preço
+  const baseFreight = calculatePrice(form.getValues("size"), calculatedDistance);
+  const platformFee = 4.50;
+  const totalFreight = baseFreight + platformFee;
+  const insurancePrice = 9.90; // Mock de seguro fixo para o protótipo
+  const finalTotal = totalFreight + (withInsurance ? insurancePrice : 0);
 
   return (
     <div className="space-y-6 pb-20 page-transition">
@@ -506,32 +509,77 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 4 && (
-            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-10">
               <div className="space-y-1">
-                <h2 className="text-xl font-bold">Tudo certo? 🏁</h2>
-                <p className="text-sm text-muted-foreground">Confira os valores e finalize seu pedido.</p>
+                <h2 className="text-xl font-bold">Resumo e Pagamento 🏁</h2>
+                <p className="text-sm text-muted-foreground">Confira os valores finais antes do PIX.</p>
               </div>
 
-              <div className="bg-muted/20 rounded-[2.5rem] p-8 space-y-6 border border-muted">
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Transporte ({form.getValues("size")})</span>
-                    <span className="font-bold">R$ {calculatePrice(form.getValues("size"), calculatedDistance).toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground">Taxa VYA (Seguro + App)</span>
-                    <span className="font-bold">R$ 4,50</span>
-                  </div>
-                  <div className="pt-4 border-t flex justify-between items-end">
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total a pagar</p>
-                      <p className="text-3xl font-bold text-primary tracking-tight">R$ {(calculatePrice(form.getValues("size"), calculatedDistance) + 4.5).toFixed(2)}</p>
-                    </div>
-                    <div className="text-right">
-                      <div className="flex items-center gap-1 text-green-600 text-[10px] font-bold mb-1">
-                        <ShieldCheck className="h-3 w-3" /> SEGURO ATIVO
+              {/* OFERTA DE SEGURO */}
+              <Card className={cn(
+                "rounded-[2rem] border-2 transition-all overflow-hidden",
+                withInsurance ? "border-primary bg-primary/5" : "border-muted bg-white"
+              )}>
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div className="flex items-center gap-3">
+                      <div className={cn(
+                        "h-10 w-10 rounded-2xl flex items-center justify-center",
+                        withInsurance ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                      )}>
+                        <ShieldCheck className="h-6 w-6" />
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm">VYA Safe (Opcional)</p>
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold">Seguro de Carga Integral</p>
                       </div>
                     </div>
+                    <Switch 
+                      checked={withInsurance} 
+                      onCheckedChange={setWithInsurance} 
+                      className="data-[state=checked]:bg-primary"
+                    />
+                  </div>
+                  
+                  <div className="space-y-2 p-3 bg-white/50 rounded-xl">
+                    <p className="text-[11px] leading-relaxed">
+                      Proteção contra <strong>roubo</strong> ou <strong>avaria significativa</strong>. 
+                      Garante o valor total do produto + frete de volta no seu bolso.
+                    </p>
+                    <div className="flex items-center gap-2 text-[10px] font-bold text-primary">
+                      <Info className="h-3 w-3" /> APENAS + R$ {insurancePrice.toFixed(2)}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* RESUMO FINANCEIRO */}
+              <div className="bg-muted/20 rounded-[2.5rem] p-8 space-y-6 border border-muted relative overflow-hidden">
+                <div className="space-y-4 relative z-10">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground font-medium">Valor do frete</span>
+                    <span className="font-bold">R$ {totalFreight.toFixed(2)}</span>
+                  </div>
+                  
+                  {withInsurance && (
+                    <div className="flex justify-between items-center text-sm animate-in fade-in slide-in-from-top-1">
+                      <span className="text-muted-foreground font-medium">Seguro VYA Safe</span>
+                      <span className="font-bold">R$ {insurancePrice.toFixed(2)}</span>
+                    </div>
+                  )}
+
+                  <div className="pt-4 border-t flex justify-between items-end">
+                    <div>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total do pedido</p>
+                      <p className="text-3xl font-bold text-primary tracking-tight">R$ {finalTotal.toFixed(2)}</p>
+                    </div>
+                    {withInsurance && (
+                      <div className="text-right pb-1">
+                        <div className="flex items-center gap-1 text-green-600 text-[10px] font-bold px-2 py-0.5 bg-green-50 rounded-full">
+                          <ShieldCheck className="h-3 w-3" /> PROTEGIDO
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
@@ -539,16 +587,16 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center gap-3">
                 <CreditCard className="h-5 w-5 text-primary" />
                 <p className="text-[11px] text-primary/80 leading-tight">
-                  Seu pagamento fica retido conosco até que você confirme o recebimento do pacote.
+                  Seu pagamento via PIX fica retido com segurança até você confirmar a entrega.
                 </p>
               </div>
 
               <div className="space-y-3">
-                <Button type="submit" className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20">
+                <Button type="submit" className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform">
                   Pagar com PIX <Sparkles className="h-5 w-5 fill-current" />
                 </Button>
                 <Button variant="ghost" type="button" className="w-full font-bold text-muted-foreground" onClick={prevStep}>
-                  Voltar
+                  Voltar e ajustar
                 </Button>
               </div>
             </div>
