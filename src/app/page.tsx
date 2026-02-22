@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -45,7 +44,7 @@ export default function Home() {
         );
       case 'profile':
         return (
-          <div className="space-y-8 page-transition pb-10">
+          <div className="space-y-8 page-transition pb-32">
             {/* Header do Perfil */}
             <div className="text-center space-y-4 pt-6">
               <div className="relative inline-block">
@@ -128,8 +127,8 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* Container Principal */}
-      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-24 no-scrollbar">
+      {/* Container Principal com rolagem suave */}
+      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-10 no-scrollbar">
         <div className="max-w-md mx-auto h-full">
           {renderContent()}
         </div>
