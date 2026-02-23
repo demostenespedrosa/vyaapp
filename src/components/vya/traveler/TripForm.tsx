@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -26,7 +26,8 @@ import {
   PackageCheck,
   Building2,
   MapPinned,
-  Trash2
+  Trash2,
+  Sparkles
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -34,6 +35,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { Checkbox } from "@/components/ui/checkbox";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -80,9 +82,8 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
 
   // Estados para Cidades de Passagem (Paradas)
-  const [stopSearchQuery, setStopSearchQuery] = useState("");
-  const [stopSearchResults, setStopSearchResults] = useState<Location[]>([]);
-  const [isSearchingStops, setIsSearchingStops] = useState(false);
+  const [suggestedStops, setSuggestedStops] = useState<Location[]>([]);
+  const [isLoadingStops, setIsLoadingStops] = useState(false);
   const [selectedStops, setSelectedStops] = useState<Location[]>([]);
   const [stopMeetingPoints, setStopMeetingPoints] = useState<Record<string, string>>({});
 
@@ -165,26 +166,36 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
     }
   }, [selectedOrigin, selectedDest, step, fetchRoutes]);
 
-  const addStop = (loc: Location) => {
-    if (selectedStops.some(s => s.display_name === loc.display_name)) {
-      toast({ title: "Já adicionada!", description: "Essa cidade já está na sua lista de paradas." });
-      return;
+  // Efeito para "encontrar" cidades na rota
+  useEffect(() => {
+    if (step === 4 && selectedOrigin && selectedDest && routes[selectedRouteIdx]) {
+      setIsLoadingStops(true);
+      // Simulando a varredura da malha rodoviária para encontrar pontos de interesse
+      setTimeout(() => {
+        // Mock inteligente baseado na rota selecionada
+        const routeName = routes[selectedRouteIdx].summary;
+        const mocks: Location[] = [
+          { name: "Ponto de Apoio Graal", display_name: `${routeName}, Km 82`, lat: "", lon: "" },
+          { name: "Trevo de Acesso Leste", display_name: `${routeName}, Km 145`, lat: "", lon: "" },
+          { name: "Cidade Satélite Intermediária", display_name: `Marginal da ${routeName}`, lat: "", lon: "" },
+          { name: "Parada OBRIGATÓRIA", display_name: `${routeName}, Km 210`, lat: "", lon: "" },
+        ];
+        setSuggestedStops(mocks);
+        setIsLoadingStops(false);
+      }, 1500);
     }
-    setSelectedStops([...selectedStops, loc]);
-    setStopSearchQuery("");
-    setStopSearchResults([]);
-  };
+  }, [step, selectedOrigin, selectedDest, selectedRouteIdx, routes]);
 
-  const removeStop = (idx: number) => {
-    const newStops = [...selectedStops];
-    const cityToRemove = newStops[idx].name;
-    newStops.splice(idx, 1);
-    setSelectedStops(newStops);
-    
-    // Limpar ponto de encontro associado
-    const newMeetingPoints = { ...stopMeetingPoints };
-    delete newMeetingPoints[cityToRemove];
-    setStopMeetingPoints(newMeetingPoints);
+  const toggleStop = (loc: Location) => {
+    const exists = selectedStops.some(s => s.display_name === loc.display_name);
+    if (exists) {
+      setSelectedStops(selectedStops.filter(s => s.display_name !== loc.display_name));
+      const newPoints = { ...stopMeetingPoints };
+      delete newPoints[loc.name];
+      setStopMeetingPoints(newPoints);
+    } else {
+      setSelectedStops([...selectedStops, loc]);
+    }
   };
 
   const nextStep = () => setStep(step + 1);
@@ -359,73 +370,85 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-6 animate-in slide-in-from-right-4">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Cidades de Passagem 🏙️</h2>
-                <p className="text-sm text-muted-foreground">Busque e adicione as cidades onde você aceita parar.</p>
+                <p className="text-sm text-muted-foreground">Marque onde você aceita parar para coletar ou entregar.</p>
               </div>
               
-              <div className="space-y-4">
-                {/* Busca de Cidades de Parada */}
-                <div className="relative group">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary" />
-                  <Input 
-                    placeholder="Adicionar cidade de parada..." 
-                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-sm"
-                    value={stopSearchQuery}
-                    onChange={(e) => {
-                      setStopSearchQuery(e.target.value);
-                      searchLocation(e.target.value, setStopSearchResults, setIsSearchingStops);
-                    }}
-                  />
-                  {isSearchingStops && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-secondary" />}
-                </div>
+              <div className="space-y-6">
+                {isLoadingStops ? (
+                  <div className="py-12 flex flex-col items-center gap-3 text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-secondary" />
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest animate-pulse">Escaneando rota para encontrar cidades...</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="flex items-center gap-2 px-1">
+                      <Sparkles className="h-4 w-4 text-secondary" />
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Sugestões baseadas na sua rota</p>
+                    </div>
 
-                {!isSearchingStops && stopSearchResults.length > 0 && (
-                  <div className="bg-white rounded-2xl border shadow-lg overflow-hidden animate-in fade-in zoom-in-95 z-30 relative">
-                    {stopSearchResults.map((loc, i) => (
-                      <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-secondary/5 border-b last:border-0 transition-colors flex items-center gap-3" onClick={() => addStop(loc)}>
-                        <Building2 className="h-4 w-4 text-muted-foreground" />
-                        <div>
-                          <p className="font-bold">{loc.name}</p>
-                          <p className="text-[10px] text-muted-foreground truncate max-w-[250px]">{loc.display_name}</p>
-                        </div>
-                      </button>
-                    ))}
+                    <div className="grid gap-3">
+                      {suggestedStops.map((loc, i) => {
+                        const isSelected = selectedStops.some(s => s.display_name === loc.display_name);
+                        return (
+                          <Card 
+                            key={i} 
+                            className={cn(
+                              "rounded-2xl border-none transition-all overflow-hidden cursor-pointer active:scale-[0.99]",
+                              isSelected ? "bg-secondary/10" : "bg-muted/30"
+                            )}
+                            onClick={() => toggleStop(loc)}
+                          >
+                            <CardContent className="p-4 space-y-4">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className={cn(
+                                    "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
+                                    isSelected ? "bg-secondary text-white" : "bg-white text-muted-foreground"
+                                  )}>
+                                    <Building2 className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <p className="text-sm font-bold">{loc.name}</p>
+                                    <p className="text-[10px] text-muted-foreground truncate max-w-[200px]">{loc.display_name}</p>
+                                  </div>
+                                </div>
+                                <Checkbox 
+                                  checked={isSelected}
+                                  onCheckedChange={() => toggleStop(loc)}
+                                  className="h-6 w-6 rounded-lg data-[state=checked]:bg-secondary border-secondary/30"
+                                />
+                              </div>
+                              
+                              {isSelected && (
+                                <div className="animate-in slide-in-from-top-2 pt-2 border-t border-secondary/10">
+                                  <FormLabel className="text-[9px] font-bold uppercase text-secondary mb-1 block">Ponto de Encontro em {loc.name}</FormLabel>
+                                  <Input 
+                                    placeholder="Ex: Rodoviária, Saída do Trevo..." 
+                                    className="h-10 rounded-xl bg-white border-dashed border-2 focus-visible:ring-secondary/20 text-xs"
+                                    value={stopMeetingPoints[loc.name] || ""}
+                                    onChange={(e) => {
+                                      e.stopPropagation();
+                                      setStopMeetingPoints({...stopMeetingPoints, [loc.name]: e.target.value});
+                                    }}
+                                    onClick={(e) => e.stopPropagation()}
+                                  />
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Lista de Cidades Selecionadas */}
-                <div className="space-y-3 pt-2">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Cidades Selecionadas ({selectedStops.length})</p>
-                  {selectedStops.length > 0 ? (
-                    selectedStops.map((city, i) => (
-                      <Card key={i} className="rounded-2xl border-none bg-secondary/5 overflow-hidden animate-in slide-in-from-left-2">
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex justify-between items-center">
-                            <div className="flex items-center gap-2">
-                              <MapPinned className="h-4 w-4 text-secondary" />
-                              <span className="text-sm font-bold">{city.name}</span>
-                            </div>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" onClick={() => removeStop(i)}>
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                          <Input 
-                            placeholder={`Ponto de encontro em ${city.name}`} 
-                            className="h-10 rounded-xl bg-white border-dashed border-2 focus-visible:ring-secondary/20 text-xs"
-                            value={stopMeetingPoints[city.name] || ""}
-                            onChange={(e) => setStopMeetingPoints({...stopMeetingPoints, [city.name]: e.target.value})}
-                          />
-                        </CardContent>
-                      </Card>
-                    ))
-                  ) : (
-                    <div className="p-10 text-center space-y-4 bg-muted/10 rounded-[2.5rem] border border-dashed">
-                      <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mx-auto">
-                        <Building2 className="h-6 w-6 text-muted-foreground/40" />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground font-medium">Use a busca acima para adicionar cidades da sua rota e ganhar mais!</p>
-                    </div>
-                  )}
-                </div>
+                {selectedStops.length === 0 && !isLoadingStops && (
+                  <div className="p-6 text-center space-y-2 bg-muted/10 rounded-2xl border border-dashed">
+                    <Info className="h-4 w-4 text-muted-foreground/40 mx-auto" />
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-widest">Nenhuma parada selecionada</p>
+                    <p className="text-[9px] text-muted-foreground/60">Marque as cidades acima para aumentar as chances de envios.</p>
+                  </div>
+                )}
               </div>
 
               <div className="flex gap-3">
