@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Home, Package, Wallet, User, PlusCircle, Map } from "lucide-react";
+import { Home, Package, Wallet, User, PlusCircle, Map, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -19,7 +19,7 @@ export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
         { id: 'profile', label: 'Perfil', icon: User },
       ]
     : [
-        { id: 'home', label: 'Início', icon: Home },
+        { id: 'home', label: 'Pedidos', icon: Search },
         { id: 'activity', label: 'Viagens', icon: Map },
         { id: 'action', label: 'Novo', icon: PlusCircle, isAction: true },
         { id: 'wallet', label: 'Grana', icon: Wallet },

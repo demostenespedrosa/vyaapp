@@ -1,11 +1,12 @@
 
 "use client";
 
-import { Bell, ArrowRight, Package, ShieldCheck, Zap } from "lucide-react";
+import { Bell, ArrowRight, Package, ShieldCheck, Zap, Search, MapPin, ChevronRight } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface HomeDashboardProps {
   mode: 'sender' | 'traveler';
@@ -13,7 +14,7 @@ interface HomeDashboardProps {
 }
 
 export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
-  const userName = "Lucas"; // Mock
+  const userName = "Lucas";
 
   return (
     <div className="space-y-8 page-transition pb-24">
@@ -26,7 +27,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
           <p className="text-muted-foreground text-sm font-medium">
             {mode === 'sender' 
               ? "Bora mandar alguma coisa hoje?" 
-              : "Pronto pra fazer uma grana extra?"}
+              : "Veja os pedidos na sua rota."}
           </p>
         </div>
         <div className="flex gap-2">
@@ -40,9 +41,8 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
         </div>
       </header>
 
-      {/* Card de Ação Herói (Foco Único) */}
-      <section>
-        {mode === 'sender' ? (
+      {mode === 'sender' ? (
+        <section>
           <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white shadow-2xl shadow-primary/20 overflow-hidden relative group active:scale-[0.98] transition-all">
             <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
               <Package className="h-32 w-32 rotate-12" />
@@ -66,34 +66,65 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
               </Button>
             </CardContent>
           </Card>
-        ) : (
-          <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-secondary via-secondary/90 to-secondary/80 text-white shadow-2xl shadow-secondary/20 overflow-hidden relative group active:scale-[0.98] transition-all">
-            <div className="absolute top-0 right-0 p-8 opacity-10 group-hover:scale-110 transition-transform">
-              <Zap className="h-32 w-32 -rotate-12" />
-            </div>
-            <CardContent className="p-8 relative z-10 space-y-6">
-              <div className="space-y-2">
-                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-1">FAÇA GRANA EXTRA</Badge>
-                <h2 className="text-2xl font-bold leading-tight tracking-tight">
-                  Vai pegar a estrada hoje? 🚗
-                </h2>
-                <p className="text-white/80 text-sm font-medium">
-                  Cadastre sua viagem e pague o combustível levando encomendas.
-                </p>
-              </div>
-              
-              <Button 
-                onClick={onAction}
-                className="w-full h-14 rounded-2xl bg-white text-secondary font-bold hover:bg-white/90 text-base gap-2 shadow-xl shadow-black/5"
-              >
-                Cadastrar minha viagem <ArrowRight className="h-5 w-5" />
-              </Button>
-            </CardContent>
-          </Card>
-        )}
-      </section>
+        </section>
+      ) : (
+        <section className="space-y-6">
+          <div className="relative group">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-secondary transition-colors" />
+            <Input 
+              placeholder="Para onde você vai hoje?" 
+              className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-secondary/20 transition-all text-base"
+            />
+          </div>
 
-      {/* Cards de Destaque com Vieses Cognitivos */}
+          <div className="flex justify-between items-center px-1">
+            <h3 className="text-lg font-bold">Disponíveis na Rota 📦</h3>
+            <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none animate-pulse">Novos Matchs!</Badge>
+          </div>
+          
+          <div className="space-y-4">
+            {[
+              { id: 'VY-982', size: 'P', earnings: 18.50, from: 'Caruaru, PE', to: 'Recife, PE', item: 'Smartphone Samsung', time: 'Há 12 min' },
+              { id: 'VY-441', size: 'M', earnings: 32.20, from: 'Bezerros, PE', to: 'Recife, PE', item: 'Caixa de Doces', time: 'Há 45 min' },
+              { id: 'VY-772', size: 'G', earnings: 55.00, from: 'Gravatá, PE', to: 'Vitória, PE', item: 'Fardo de Roupas', time: 'Há 1h' },
+            ].map((pkg) => (
+              <Card key={pkg.id} className="rounded-[2rem] border-none shadow-sm bg-white overflow-hidden active:scale-[0.98] transition-all border-l-4 border-l-secondary group">
+                <CardContent className="p-5 space-y-4">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{pkg.id}</span>
+                        <Badge variant="outline" className="text-[9px] font-bold uppercase border-secondary/20 text-secondary">Tamanho {pkg.size}</Badge>
+                      </div>
+                      <p className="font-bold text-sm leading-tight group-hover:text-secondary transition-colors">{pkg.from} → {pkg.to}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-lg font-bold text-secondary">R$ {pkg.earnings.toFixed(2)}</p>
+                      <p className="text-[8px] text-muted-foreground font-bold uppercase tracking-widest">Ganho Líquido</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 text-[11px] text-muted-foreground bg-muted/30 p-3 rounded-xl">
+                    <Package className="h-3.5 w-3.5 text-secondary shrink-0" />
+                    <span className="truncate">Conteúdo: <strong className="text-foreground">{pkg.item}</strong></span>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-muted-foreground font-medium flex items-center gap-1">
+                      <Zap className="h-3 w-3 text-secondary" /> {pkg.time}
+                    </span>
+                    <Button size="sm" className="h-9 rounded-xl bg-secondary hover:bg-secondary/90 font-bold gap-2 px-4">
+                      Aceitar <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Cards de Destaque */}
       <section className="space-y-4">
         <h3 className="text-lg font-bold px-1">Dicas pra você 💡</h3>
         <div className="flex gap-4 overflow-x-auto pb-4 no-scrollbar -mx-4 px-4">
@@ -116,31 +147,6 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
               <p className="text-xs text-muted-foreground leading-relaxed">Mais de 80% das entregas chegam no mesmo dia!</p>
             </CardContent>
           </Card>
-        </div>
-      </section>
-
-      {/* Atividade Recente */}
-      <section className="space-y-4">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="text-lg font-bold">Últimas do VYA</h3>
-          <Button variant="link" className="text-primary font-bold text-sm p-0 h-auto">Ver tudo</Button>
-        </div>
-        <div className="space-y-3">
-          {[1, 2].map((i) => (
-            <div key={i} className="flex items-center gap-4 p-4 rounded-[2rem] bg-white border border-muted shadow-sm active:scale-[0.99] transition-transform cursor-pointer">
-              <div className="h-12 w-12 rounded-2xl bg-primary/5 flex items-center justify-center text-primary font-bold">
-                VY
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-bold truncate">Pacote entregue!</p>
-                <p className="text-[11px] text-muted-foreground truncate">De São Paulo para Santos</p>
-              </div>
-              <div className="text-right">
-                <p className="text-[11px] font-bold text-secondary bg-secondary/10 px-2 py-0.5 rounded-full inline-block">Concluído</p>
-                <p className="text-[10px] text-muted-foreground mt-1">Há 2h</p>
-              </div>
-            </div>
-          ))}
         </div>
       </section>
     </div>
