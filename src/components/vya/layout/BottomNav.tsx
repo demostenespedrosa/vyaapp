@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Home, Package, Wallet, User, PlusCircle, Map, Search } from "lucide-react";
+import { Home, Package, Wallet, User, Map, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface BottomNavProps {
@@ -12,6 +12,7 @@ interface BottomNavProps {
 
 export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
   // Definimos as abas baseadas no modo (Remetente vs Viajante)
+  // Removido o botão FAB (action) do modo viajante a pedido do usuário
   const tabs = mode === 'sender' 
     ? [
         { id: 'home', label: 'Início', icon: Home },
@@ -21,7 +22,6 @@ export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
     : [
         { id: 'home', label: 'Pedidos', icon: Search },
         { id: 'activity', label: 'Viagens', icon: Map },
-        { id: 'action', label: 'Novo', icon: PlusCircle, isAction: true },
         { id: 'wallet', label: 'Grana', icon: Wallet },
         { id: 'profile', label: 'Perfil', icon: User },
       ];
@@ -30,23 +30,11 @@ export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
     <nav className="fixed bottom-0 left-0 right-0 glass z-50 px-6 pb-safe-area-bottom border-t shadow-[0_-5px_20px_rgba(0,0,0,0.05)]">
       <div className={cn(
         "flex items-center h-16 max-w-md mx-auto",
-        mode === 'sender' ? "justify-around" : "justify-between"
+        "justify-around" // Simplificado para justify-around em ambos os modos para melhor espaçamento com menos itens
       )}>
         {tabs.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
-
-          if (tab.isAction) {
-            return (
-              <button
-                key={tab.id}
-                onClick={() => onTabChange(tab.id)}
-                className="relative -top-6 flex items-center justify-center h-14 w-14 rounded-full bg-primary text-white shadow-lg shadow-primary/30 active:scale-90 transition-transform"
-              >
-                <Icon className="h-8 w-8" />
-              </button>
-            );
-          }
 
           return (
             <button
