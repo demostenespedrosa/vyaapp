@@ -41,3 +41,39 @@ export const TRAVELER_MODALS = [
   { id: 'truck', label: 'Caminhão/Furgão', description: 'Grande capacidade' },
   { id: 'bus', label: 'Ônibus Intermunicipal', description: 'Viagem de linha' },
 ] as const;
+
+export interface PredefinedRoute {
+  id: string;
+  origin: string;
+  destination: string;
+  stops: string[];
+  distanceKm: number;
+  averageDurationMin: number;
+}
+
+export const PREDEFINED_ROUTES: PredefinedRoute[] = [
+  {
+    id: 'route-1',
+    origin: 'Caruaru, PE',
+    destination: 'Recife, PE',
+    stops: ['Bezerros, PE', 'Gravatá, PE', 'Vitória de Santo Antão, PE', 'Jaboatão, PE'],
+    distanceKm: 135,
+    averageDurationMin: 120
+  },
+  {
+    id: 'route-2',
+    origin: 'Recife, PE',
+    destination: 'Caruaru, PE',
+    stops: ['Jaboatão, PE', 'Vitória de Santo Antão, PE', 'Gravatá, PE', 'Bezerros, PE'],
+    distanceKm: 135,
+    averageDurationMin: 125
+  },
+  {
+    id: 'route-3',
+    origin: 'São Paulo, SP',
+    destination: 'Rio de Janeiro, RJ',
+    stops: ['São José dos Campos, SP', 'Taubaté, SP', 'Resende, RJ', 'Volta Redonda, RJ'],
+    distanceKm: 435,
+    averageDurationMin: 360
+  }
+];

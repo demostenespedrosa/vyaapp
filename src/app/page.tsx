@@ -6,15 +6,16 @@ import { BottomNav } from "@/components/vya/layout/BottomNav";
 import { HomeDashboard } from "@/components/vya/home/HomeDashboard";
 import { SenderView } from "@/components/vya/sender/SenderView";
 import { TravelerView } from "@/components/vya/traveler/TravelerView";
+import { AdminDashboard } from "@/components/vya/admin/AdminDashboard";
 import { WalletCard } from "@/components/vya/shared/WalletCard";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Shield, CreditCard, LogOut, ChevronRight } from "lucide-react";
+import { Settings, Shield, CreditCard, LogOut, ChevronRight, ShieldCheck } from "lucide-react";
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState('home');
-  const [mode, setMode] = useState<'sender' | 'traveler'>('sender');
+  const [mode, setMode] = useState<'sender' | 'traveler' | 'admin'>('sender');
   const [startCreating, setStartCreating] = useState(false);
 
   // Garantir que a aba ativa seja válida ao trocar de modo
@@ -44,9 +45,13 @@ export default function Home() {
   };
 
   const renderContent = () => {
+    if (mode === 'admin') {
+      return <AdminDashboard />;
+    }
+
     switch (activeTab) {
       case 'home':
-        return <HomeDashboard mode={mode} onAction={handleHomeAction} />;
+        return <HomeDashboard mode={mode as 'sender' | 'traveler'} onAction={handleHomeAction} />;
       case 'activity':
         return mode === 'sender' ? (
           <SenderView initialIsCreating={startCreating} />
@@ -87,23 +92,11 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Status Rápido */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="p-5 rounded-[2rem] bg-muted/50 text-center">
-                <p className="text-2xl font-bold text-primary">42</p>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Envios</p>
-              </div>
-              <div className="p-5 rounded-[2rem] bg-muted/50 text-center">
-                <p className="text-2xl font-bold text-secondary">15</p>
-                <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Viagens</p>
-              </div>
-            </div>
-
             {/* Configurações de Modo */}
             <section className="space-y-3">
-              <h3 className="text-xs font-bold text-muted-foreground uppercase px-4 tracking-widest">Configurações</h3>
+              <h3 className="text-xs font-bold text-muted-foreground uppercase px-4 tracking-widest">Painel do Usuário</h3>
               <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/30">
-                <CardContent className="p-2">
+                <CardContent className="p-2 space-y-2">
                   <div className="flex items-center justify-between p-5 bg-white rounded-[2rem] shadow-sm">
                     <div className="space-y-0.5">
                       <Label className="text-base font-bold">Modo de Uso</Label>
@@ -120,6 +113,18 @@ export default function Home() {
                       />
                       <span className={`text-[10px] font-bold uppercase transition-colors ${mode === 'traveler' ? 'text-secondary' : 'text-muted-foreground'}`}>Viajar</span>
                     </div>
+                  </div>
+                  
+                  {/* ADMIN SWITCH - Simulado para protótipo */}
+                  <div className="flex items-center justify-between p-5 bg-primary/5 rounded-[2rem] border border-primary/10">
+                    <div className="flex items-center gap-3 text-primary">
+                      <ShieldCheck className="h-5 w-5" />
+                      <Label className="text-base font-bold">Modo Admin</Label>
+                    </div>
+                    <Switch 
+                      checked={mode === 'admin'} 
+                      onCheckedChange={(checked) => setMode(checked ? 'admin' : 'sender')}
+                    />
                   </div>
                 </CardContent>
               </Card>
@@ -147,7 +152,7 @@ export default function Home() {
           </div>
         );
       default:
-        return <HomeDashboard mode={mode} onAction={handleHomeAction} />;
+        return <HomeDashboard mode={mode as 'sender' | 'traveler'} onAction={handleHomeAction} />;
     }
   };
 
@@ -160,7 +165,17 @@ export default function Home() {
         </div>
       </main>
 
-      <BottomNav mode={mode} activeTab={activeTab} onTabChange={handleTabChange} />
+      {mode !== 'admin' && (
+        <BottomNav mode={mode as 'sender' | 'traveler'} activeTab={activeTab} onTabChange={handleTabChange} />
+      )}
+      
+      {mode === 'admin' && (
+        <nav className="fixed bottom-0 left-0 right-0 glass z-50 px-6 pb-safe-area-bottom border-t shadow-[0_-5px_20px_rgba(0,0,0,0.05)] h-16 flex items-center justify-center">
+          <Button variant="ghost" className="text-primary font-bold gap-2" onClick={() => setMode('sender')}>
+            <LogOut className="h-4 w-4" /> Sair do Admin
+          </Button>
+        </nav>
+      )}
     </div>
   );
 }
