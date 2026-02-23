@@ -11,9 +11,24 @@ import { WalletCard } from "@/components/vya/shared/WalletCard";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Settings, Shield, CreditCard, LogOut, ChevronRight, ShieldCheck } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { 
+  Settings, 
+  Shield, 
+  CreditCard, 
+  LogOut, 
+  ChevronRight, 
+  ShieldCheck, 
+  Box, 
+  ArrowRight,
+  User as UserIcon,
+  ShieldAlert,
+  Sparkles
+} from "lucide-react";
+import { cn } from "@/lib/utils";
 
 export default function Home() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [activeTab, setActiveTab] = useState('home');
   const [mode, setMode] = useState<'sender' | 'traveler' | 'admin'>('sender');
   const [startCreating, setStartCreating] = useState(false);
@@ -42,6 +57,12 @@ export default function Home() {
     } else {
       setActiveTab('action');
     }
+  };
+
+  const handleLogout = () => {
+    setIsLoggedIn(false);
+    setActiveTab('home');
+    setMode('sender');
   };
 
   const renderContent = () => {
@@ -136,7 +157,6 @@ export default function Home() {
                 { icon: Settings, label: "Meus Dados", color: "text-blue-500", bg: "bg-blue-50" },
                 { icon: Shield, label: "Segurança", color: "text-green-500", bg: "bg-green-50" },
                 { icon: CreditCard, label: "Pagamentos", color: "text-orange-500", bg: "bg-orange-50" },
-                { icon: LogOut, label: "Sair da Conta", color: "text-destructive", bg: "bg-red-50" },
               ].map((item, idx) => (
                 <button key={idx} className="w-full flex items-center justify-between p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all hover:bg-muted/30">
                   <div className="flex items-center gap-4">
@@ -148,6 +168,18 @@ export default function Home() {
                   <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
                 </button>
               ))}
+              
+              <button 
+                onClick={handleLogout}
+                className="w-full flex items-center justify-between p-4 bg-red-50 rounded-3xl active:scale-[0.98] transition-all hover:bg-red-100"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-white text-destructive">
+                    <LogOut className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-sm text-destructive">Sair da Conta</span>
+                </div>
+              </button>
             </section>
           </div>
         );
@@ -155,6 +187,60 @@ export default function Home() {
         return <HomeDashboard mode={mode as 'sender' | 'traveler'} onAction={handleHomeAction} />;
     }
   };
+
+  if (!isLoggedIn) {
+    return (
+      <div className="min-h-screen bg-white flex flex-col px-6 py-10 page-transition">
+        {/* Top Header */}
+        <div className="flex-1 flex flex-col justify-center space-y-12">
+          <div className="space-y-6 text-center">
+            <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary shadow-2xl shadow-primary/30 text-white mx-auto">
+              <Box className="h-10 w-10" />
+            </div>
+            <div className="space-y-2">
+              <h1 className="text-4xl font-black tracking-tighter text-foreground">VYA</h1>
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em]">Logística Colaborativa</p>
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-center px-4 leading-tight">
+              A revolução da entrega na palma da sua mão. 📦
+            </h2>
+            <p className="text-sm text-muted-foreground text-center px-8">
+              Mova o Brasil sem precisar de frota própria. Conectamos quem precisa mandar com quem já vai viajar.
+            </p>
+          </div>
+        </div>
+
+        {/* Action Links/Buttons */}
+        <div className="space-y-4 mt-auto">
+          <Button 
+            onClick={() => { setIsLoggedIn(true); setMode('sender'); }}
+            className="w-full h-16 rounded-[1.5rem] bg-primary hover:bg-primary/90 text-lg font-bold gap-3 shadow-xl shadow-primary/20 group active:scale-95 transition-all"
+          >
+            <UserIcon className="h-6 w-6" /> Acessar como Usuário
+            <ArrowRight className="h-5 w-5 ml-auto opacity-40 group-hover:opacity-100 transition-opacity" />
+          </Button>
+
+          <Button 
+            variant="outline"
+            onClick={() => { setIsLoggedIn(true); setMode('admin'); }}
+            className="w-full h-16 rounded-[1.5rem] border-2 border-primary/10 hover:bg-primary/5 text-lg font-bold gap-3 group active:scale-95 transition-all"
+          >
+            <ShieldAlert className="h-6 w-6 text-primary" /> Painel do Administrador
+            <ArrowRight className="h-5 w-5 ml-auto opacity-20 group-hover:opacity-100 transition-opacity" />
+          </Button>
+          
+          <div className="pt-6 text-center">
+            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center justify-center gap-2">
+              <Sparkles className="h-3 w-3 text-primary" /> Sistema em modo Demo (Sem Backend)
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
