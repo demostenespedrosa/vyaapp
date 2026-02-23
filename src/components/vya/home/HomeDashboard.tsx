@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -6,9 +5,7 @@ import {
   Bell, 
   Package, 
   Zap, 
-  Search, 
   ChevronRight, 
-  Filter,
   MapPin,
   ArrowRight,
   Sparkles,
@@ -19,7 +16,6 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 interface HomeDashboardProps {
@@ -28,7 +24,6 @@ interface HomeDashboardProps {
 }
 
 export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
-  const [searchQuery, setSearchQuery] = useState("");
   const userName = "Lucas";
 
   const availablePackages = [
@@ -37,12 +32,6 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
     { id: 'VY-772', size: 'G', earnings: 55.00, from: 'Gravatá, PE', to: 'Vitória, PE', item: 'Fardo de Roupas', time: 'Há 1h', urgency: 'low' },
     { id: 'VY-102', size: 'P', earnings: 15.00, from: 'Caruaru, PE', to: 'Gravatá, PE', item: 'Documentos', time: 'Há 2h', urgency: 'high' },
   ];
-
-  const filteredPackages = availablePackages.filter(p => 
-    p.from.toLowerCase().includes(searchQuery.toLowerCase()) || 
-    p.to.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    p.item.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   return (
     <div className="space-y-6 page-transition pb-24">
@@ -108,18 +97,8 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
         </section>
       ) : (
         <section className="space-y-6">
-          {/* Busca e Filtro */}
+          {/* Filtros de Categoria */}
           <div className="space-y-4">
-            <div className="relative group">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-secondary transition-colors" />
-              <Input 
-                placeholder="Para onde você vai hoje?" 
-                className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-secondary/20 transition-all text-base"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
-            
             <div className="flex gap-2 overflow-x-auto no-scrollbar pb-1">
               <Button size="sm" variant="secondary" className="rounded-full bg-secondary/10 text-secondary border-none h-8 px-4 font-bold text-[10px] uppercase tracking-wider">
                 Todas as Rotas
@@ -138,13 +117,13 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
             <div className="flex justify-between items-center px-1">
               <h3 className="text-lg font-bold">Disponíveis na Rota 📦</h3>
               <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none animate-pulse">
-                {filteredPackages.length} novos pedidos
+                {availablePackages.length} novos pedidos
               </Badge>
             </div>
             
-            {filteredPackages.length > 0 ? (
+            {availablePackages.length > 0 ? (
               <div className="space-y-4">
-                {filteredPackages.map((pkg) => (
+                {availablePackages.map((pkg) => (
                   <Card key={pkg.id} className="rounded-[2rem] border-none shadow-sm bg-white overflow-hidden active:scale-[0.98] transition-all border-l-4 border-l-secondary group">
                     <CardContent className="p-5 space-y-4">
                       <div className="flex justify-between items-start">
@@ -205,9 +184,6 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                   <p className="font-bold text-muted-foreground">Nenhum pedido encontrado</p>
                   <p className="text-xs text-muted-foreground/60">Tente buscar por outra cidade ou rodovia.</p>
                 </div>
-                <Button variant="ghost" onClick={() => setSearchQuery("")} className="text-secondary font-bold">
-                  Limpar Busca
-                </Button>
               </div>
             )}
           </div>
