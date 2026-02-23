@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -6,7 +7,7 @@ import { HomeDashboard } from "@/components/vya/home/HomeDashboard";
 import { SenderView } from "@/components/vya/sender/SenderView";
 import { TravelerView } from "@/components/vya/traveler/TravelerView";
 import { AdminDashboard } from "@/components/vya/admin/AdminDashboard";
-import { WalletCard } from "@/components/vya/shared/WalletCard";
+import { WalletDashboard } from "@/components/vya/wallet/WalletDashboard";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
@@ -80,16 +81,7 @@ export default function Home() {
           ? <SenderView initialIsCreating={true} /> 
           : <TravelerView initialIsCreating={true} />;
       case 'wallet':
-        return (
-          <div className="space-y-6 page-transition">
-            <h1 className="text-2xl font-bold">Sua Grana</h1>
-            <WalletCard />
-            <div className="p-10 rounded-[2.5rem] bg-muted/30 border border-dashed flex flex-col items-center justify-center text-center gap-3">
-              <p className="text-sm font-bold text-muted-foreground">Histórico vazio por enquanto...</p>
-              <p className="text-xs text-muted-foreground/60">Bora movimentar essa conta e fazer uns trocados!</p>
-            </div>
-          </div>
-        );
+        return <WalletDashboard />;
       case 'profile':
         return (
           <div className="space-y-8 page-transition pb-32">
