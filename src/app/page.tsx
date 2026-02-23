@@ -15,7 +15,7 @@ import { Settings, Shield, CreditCard, LogOut, ChevronRight } from "lucide-react
 export default function Home() {
   const [activeTab, setActiveTab] = useState('home');
   const [mode, setMode] = useState<'sender' | 'traveler'>('sender');
-  const [senderStartCreating, setSenderStartCreating] = useState(false);
+  const [startCreating, setStartCreating] = useState(false);
 
   // Garantir que a aba ativa seja válida ao trocar de modo
   useEffect(() => {
@@ -23,20 +23,20 @@ export default function Home() {
       setActiveTab('home');
     }
     // Resetar gatilho de criação ao trocar de modo
-    setSenderStartCreating(false);
-  }, [mode, activeTab]);
+    setStartCreating(false);
+  }, [mode]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    // Se navegou para qualquer lugar fora de "activity" pelo menu, reseta o gatilho de criação automática
-    if (tab !== 'activity') {
-      setSenderStartCreating(false);
+    // Se navegou para qualquer lugar fora de "activity/action" pelo menu, reseta o gatilho de criação automática
+    if (tab !== 'activity' && tab !== 'action') {
+      setStartCreating(false);
     }
   };
 
   const handleHomeAction = () => {
+    setStartCreating(true);
     if (mode === 'sender') {
-      setSenderStartCreating(true);
       setActiveTab('activity');
     } else {
       setActiveTab('action');
@@ -49,12 +49,14 @@ export default function Home() {
         return <HomeDashboard mode={mode} onAction={handleHomeAction} />;
       case 'activity':
         return mode === 'sender' ? (
-          <SenderView initialIsCreating={senderStartCreating} />
+          <SenderView initialIsCreating={startCreating} />
         ) : (
-          <TravelerView />
+          <TravelerView initialIsCreating={false} />
         );
       case 'action':
-        return mode === 'sender' ? <SenderView initialIsCreating={true} /> : <div className="p-8 text-center font-bold">Fluxo de Nova Viagem em breve!</div>;
+        return mode === 'sender' 
+          ? <SenderView initialIsCreating={true} /> 
+          : <TravelerView initialIsCreating={true} />;
       case 'wallet':
         return (
           <div className="space-y-6 page-transition">

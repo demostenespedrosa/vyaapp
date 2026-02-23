@@ -34,3 +34,10 @@ export function calculatePrice(size: SizeKey, distance: number): number {
   if (distance <= 300) return p.medium;
   return p.long;
 }
+
+export const TRAVELER_MODALS = [
+  { id: 'car', label: 'Carro', description: 'Ideal para todos os tamanhos' },
+  { id: 'moto', label: 'Moto', description: 'Apenas pacotes P e M' },
+  { id: 'truck', label: 'Caminhão/Furgão', description: 'Grande capacidade' },
+  { id: 'bus', label: 'Ônibus Intermunicipal', description: 'Viagem de linha' },
+] as const;
