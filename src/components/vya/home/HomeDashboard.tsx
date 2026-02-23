@@ -14,7 +14,10 @@ import {
   Clock,
   Coins,
   LocateFixed,
-  Route
+  Route,
+  ShieldCheck,
+  Search,
+  Truck
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
@@ -64,49 +67,122 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
       </header>
 
       {mode === 'sender' ? (
-        <section className="space-y-6">
+        <section className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Hero de Envio de Alto Impacto */}
           <Card className="rounded-[3rem] border-none bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white shadow-2xl shadow-primary/30 overflow-hidden relative group active:scale-[0.98] transition-all">
             <div className="absolute -top-10 -right-10 p-12 opacity-10 group-hover:scale-125 transition-transform duration-700">
               <Package className="h-48 w-48 rotate-12" />
             </div>
-            <CardContent className="p-10 relative z-10 space-y-6">
-              <div className="space-y-3">
-                <Badge className="bg-white/20 text-white border-none backdrop-blur-md mb-2 px-3 py-1 font-bold text-[10px] tracking-wider">MODO EXPRESSO</Badge>
-                <h2 className="text-3xl font-black leading-tight tracking-tighter">
-                  Pronto para despachar? 📦
+            <CardContent className="p-10 relative z-10 space-y-8">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-3 py-1 font-black text-[9px] tracking-widest uppercase">Envio Inteligente</Badge>
+                  <div className="flex -space-x-2">
+                    {[1, 2, 3].map(i => (
+                      <Avatar key={i} className="h-6 w-6 border-2 border-primary">
+                        <AvatarImage src={`https://picsum.photos/seed/traveler-${i}/100/100`} />
+                      </Avatar>
+                    ))}
+                    <div className="h-6 w-6 rounded-full bg-secondary text-[8px] font-black flex items-center justify-center border-2 border-primary">+12</div>
+                  </div>
+                </div>
+                <h2 className="text-4xl font-black leading-tight tracking-tighter">
+                  Mande agora,<br />chega hoje. 🚀
                 </h2>
-                <p className="text-white/80 text-sm font-medium leading-relaxed">
-                  Conectamos seu pacote ao viajante ideal em minutos. Economia real e entrega veloz.
+                <p className="text-white/80 text-sm font-medium leading-relaxed max-w-[240px]">
+                  Encontramos viajantes que já estão no seu trajeto. Mais rápido, barato e seguro.
                 </p>
               </div>
               
               <Button 
                 onClick={onAction}
-                className="w-full h-16 rounded-[1.5rem] bg-white text-primary font-black hover:bg-white/95 text-lg gap-3 shadow-2xl shadow-black/10 active:scale-95 transition-all"
+                className="w-full h-18 rounded-[1.8rem] bg-white text-primary font-black hover:bg-white/95 text-lg gap-3 shadow-2xl shadow-black/10 active:scale-95 transition-all py-8"
               >
-                Enviar agora <ArrowRight className="h-6 w-6" />
+                Novo Envio <ArrowRight className="h-6 w-6" />
               </Button>
             </CardContent>
           </Card>
-          
+
+          {/* Atalhos Rápidos e Úteis */}
           <div className="grid grid-cols-2 gap-4">
-            <Card className="rounded-[2.5rem] border-none bg-muted/30 p-6 space-y-3 hover:bg-muted/50 transition-colors cursor-default">
-              <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-                <TrendingUp className="h-5 w-5 text-primary" />
+            <Card className="rounded-[2.5rem] border-none bg-muted/30 p-6 space-y-4 hover:bg-muted/50 transition-all cursor-pointer group">
+              <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                <Search className="h-6 w-6 text-primary" />
               </div>
               <div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">Preços Fixos</h4>
-                <p className="text-sm font-bold">Sem surpresas.</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Rastrear</h4>
+                <p className="text-sm font-black">Onde está meu pacote?</p>
               </div>
             </Card>
-            <Card className="rounded-[2.5rem] border-none bg-muted/30 p-6 space-y-3 hover:bg-muted/50 transition-colors cursor-default">
-              <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-                <Sparkles className="h-5 w-5 text-primary" />
+            <Card className="rounded-[2.5rem] border-none bg-muted/30 p-6 space-y-4 hover:bg-muted/50 transition-all cursor-pointer group">
+              <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform">
+                <Route className="h-6 w-6 text-secondary" />
               </div>
               <div>
-                <h4 className="text-xs font-black uppercase tracking-widest text-muted-foreground mb-1">IA Smart</h4>
-                <p className="text-sm font-bold">Tamanho real.</p>
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Rotas</h4>
+                <p className="text-sm font-black">Cidades atendidas</p>
               </div>
+            </Card>
+          </div>
+
+          {/* Benefícios com Design UAU */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">Por que usar VYA? 🌟</h3>
+            <div className="space-y-3">
+              {[
+                { 
+                  icon: TrendingUp, 
+                  title: "Preços Fixos e Justos", 
+                  desc: "Sem dinâmica. Você paga pelo tamanho e distância, sem surpresas.",
+                  color: "text-blue-500",
+                  bg: "bg-blue-50"
+                },
+                { 
+                  icon: Sparkles, 
+                  title: "Dimensionamento por IA", 
+                  desc: "Tire uma foto ou descreva e nossa IA sugere o tamanho ideal (P, M ou G).",
+                  color: "text-primary",
+                  bg: "bg-primary/5"
+                },
+                { 
+                  icon: ShieldCheck, 
+                  title: "Segurança de Ponta", 
+                  desc: "Pagamento retido e confirmação por código duplo (coleta e entrega).",
+                  color: "text-green-600",
+                  bg: "bg-green-50"
+                }
+              ].map((benefit, i) => (
+                <div key={i} className="flex gap-4 p-5 rounded-[2.2rem] bg-white border border-muted shadow-sm hover:shadow-md transition-all group">
+                  <div className={cn("h-14 w-14 rounded-2xl shrink-0 flex items-center justify-center transition-transform group-hover:scale-110", benefit.bg, benefit.color)}>
+                    <benefit.icon className="h-7 w-7" />
+                  </div>
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-black text-foreground">{benefit.title}</h4>
+                    <p className="text-[11px] font-medium text-muted-foreground leading-relaxed">{benefit.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Call to Action Final - Social Proof */}
+          <div className="pt-4">
+            <Card className="rounded-[2.5rem] border-none bg-secondary/5 p-8 flex flex-col items-center text-center gap-4 relative overflow-hidden">
+              <div className="absolute top-0 right-0 p-4 opacity-5">
+                <Truck className="h-20 w-20" />
+              </div>
+              <div className="h-14 w-14 rounded-full bg-white shadow-md flex items-center justify-center">
+                <Zap className="h-7 w-7 text-secondary fill-current" />
+              </div>
+              <div className="space-y-1">
+                <h4 className="text-lg font-black tracking-tight">Crescendo com você</h4>
+                <p className="text-xs text-muted-foreground font-medium px-4">
+                  Já movemos mais de 5.000 pacotes entre cidades do Nordeste e Sudeste este mês.
+                </p>
+              </div>
+              <Button variant="ghost" className="text-secondary font-black text-[10px] uppercase tracking-widest gap-2 hover:bg-secondary/10 rounded-xl px-6">
+                Ver depoimentos <ChevronRight className="h-4 w-4" />
+              </Button>
             </Card>
           </div>
         </section>
