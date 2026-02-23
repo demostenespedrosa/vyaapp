@@ -121,17 +121,6 @@ export default function Home() {
                       <span className={`text-[10px] font-bold uppercase transition-colors ${mode === 'traveler' ? 'text-secondary' : 'text-muted-foreground'}`}>Viajar</span>
                     </div>
                   </div>
-                  
-                  <div className="flex items-center justify-between p-5 bg-primary/5 rounded-[2rem] border border-primary/10">
-                    <div className="flex items-center gap-3 text-primary">
-                      <ShieldCheck className="h-5 w-5" />
-                      <Label className="text-base font-bold">Modo Admin</Label>
-                    </div>
-                    <Switch 
-                      checked={mode === 'admin'} 
-                      onCheckedChange={(checked) => setMode(checked ? 'admin' : 'sender')}
-                    />
-                  </div>
                 </CardContent>
               </Card>
             </section>
@@ -182,7 +171,7 @@ export default function Home() {
             </div>
             <div className="space-y-2">
               <h1 className="text-4xl font-black tracking-tighter text-foreground">VYA</h1>
-              <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em]">Logística Colaborativa</p>
+              <p className="text-sm font-bold text-muted-foreground uppercase tracking-[0.2em] mt-1">Logística Colaborativa</p>
             </div>
           </div>
 
