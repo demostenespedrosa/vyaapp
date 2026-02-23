@@ -1,4 +1,3 @@
-
 "use client";
 
 import { Home, Package, Wallet, User, Map, Search } from "lucide-react";
@@ -22,7 +21,7 @@ export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
     : [
         { id: 'home', label: 'Pedidos', icon: Search },
         { id: 'activity', label: 'Viagens', icon: Map },
-        { id: 'wallet', label: 'Grana', icon: Wallet },
+        { id: 'wallet', label: 'Ganhos', icon: Wallet },
         { id: 'profile', label: 'Perfil', icon: User },
       ];
 

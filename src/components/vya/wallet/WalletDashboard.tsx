@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -53,7 +52,7 @@ export function WalletDashboard() {
       {/* Header com Saudação */}
       <header className="flex justify-between items-end pt-4 px-1">
         <div>
-          <h1 className="text-3xl font-black tracking-tighter">Sua Grana</h1>
+          <h1 className="text-3xl font-black tracking-tighter">Seus Ganhos</h1>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Gestão financeira VYA</p>
         </div>
         <div className="h-12 w-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary">
