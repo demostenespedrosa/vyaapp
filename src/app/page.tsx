@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -33,18 +32,15 @@ export default function Home() {
   const [mode, setMode] = useState<'sender' | 'traveler' | 'admin'>('sender');
   const [startCreating, setStartCreating] = useState(false);
 
-  // Garantir que a aba ativa seja válida ao trocar de modo
   useEffect(() => {
     if (mode === 'sender' && (activeTab === 'action' || activeTab === 'wallet')) {
       setActiveTab('home');
     }
-    // Resetar gatilho de criação ao trocar de modo
     setStartCreating(false);
   }, [mode]);
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    // Se navegou para qualquer lugar fora de "activity/action" pelo menu, reseta o gatilho de criação automática
     if (tab !== 'activity' && tab !== 'action') {
       setStartCreating(false);
     }
@@ -67,7 +63,7 @@ export default function Home() {
 
   const renderContent = () => {
     if (mode === 'admin') {
-      return <AdminDashboard />;
+      return <AdminDashboard onLogout={handleLogout} />;
     }
 
     switch (activeTab) {
@@ -97,7 +93,6 @@ export default function Home() {
       case 'profile':
         return (
           <div className="space-y-8 page-transition pb-32">
-            {/* Header do Perfil */}
             <div className="text-center space-y-4 pt-6">
               <div className="relative inline-block">
                 <div className="h-28 w-28 rounded-full bg-primary/10 mx-auto flex items-center justify-center text-primary text-4xl font-bold border-4 border-white shadow-xl">
@@ -113,7 +108,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Configurações de Modo */}
             <section className="space-y-3">
               <h3 className="text-xs font-bold text-muted-foreground uppercase px-4 tracking-widest">Painel do Usuário</h3>
               <Card className="rounded-[2.5rem] border-none shadow-sm bg-muted/30">
@@ -136,7 +130,6 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {/* ADMIN SWITCH - Simulado para protótipo */}
                   <div className="flex items-center justify-between p-5 bg-primary/5 rounded-[2rem] border border-primary/10">
                     <div className="flex items-center gap-3 text-primary">
                       <ShieldCheck className="h-5 w-5" />
@@ -151,7 +144,6 @@ export default function Home() {
               </Card>
             </section>
 
-            {/* Lista de Opções */}
             <section className="space-y-2">
               {[
                 { icon: Settings, label: "Meus Dados", color: "text-blue-500", bg: "bg-blue-50" },
@@ -191,7 +183,6 @@ export default function Home() {
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-white flex flex-col px-6 py-10 page-transition">
-        {/* Top Header */}
         <div className="flex-1 flex flex-col justify-center space-y-12">
           <div className="space-y-6 text-center">
             <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary shadow-2xl shadow-primary/30 text-white mx-auto">
@@ -213,7 +204,6 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Action Links/Buttons */}
         <div className="space-y-4 mt-auto">
           <Button 
             onClick={() => { setIsLoggedIn(true); setMode('sender'); }}
@@ -243,24 +233,21 @@ export default function Home() {
   }
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
-      {/* Container Principal com rolagem suave */}
-      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-10 no-scrollbar">
-        <div className="max-w-md mx-auto h-full">
+    <div className="flex flex-col h-screen overflow-hidden bg-background">
+      <main className={cn(
+        "flex-1 overflow-y-auto no-scrollbar",
+        mode === 'admin' ? "bg-slate-50" : "px-4 pt-4 pb-10"
+      )}>
+        <div className={cn(
+          "h-full",
+          mode === 'admin' ? "w-full" : "max-w-md mx-auto"
+        )}>
           {renderContent()}
         </div>
       </main>
 
       {mode !== 'admin' && (
         <BottomNav mode={mode as 'sender' | 'traveler'} activeTab={activeTab} onTabChange={handleTabChange} />
-      )}
-      
-      {mode === 'admin' && (
-        <nav className="fixed bottom-0 left-0 right-0 glass z-50 px-6 pb-safe-area-bottom border-t shadow-[0_-5px_20px_rgba(0,0,0,0.05)] h-16 flex items-center justify-center">
-          <Button variant="ghost" className="text-primary font-bold gap-2" onClick={() => setMode('sender')}>
-            <LogOut className="h-4 w-4" /> Sair do Admin
-          </Button>
-        </nav>
       )}
     </div>
   );
