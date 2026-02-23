@@ -23,7 +23,10 @@ import {
   Info,
   TrendingUp,
   ArrowRightLeft,
-  PackageCheck
+  PackageCheck,
+  Building2,
+  MapPinned,
+  Trash2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -31,8 +34,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
@@ -55,6 +56,7 @@ interface Location {
   lat: string;
   lon: string;
   name: string;
+  type?: string;
 }
 
 interface RouteOption {
@@ -77,8 +79,11 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
   const [selectedRouteIdx, setSelectedRouteIdx] = useState(0);
   const [isCalculatingRoutes, setIsCalculatingRoutes] = useState(false);
 
-  const [intermediateCities, setIntermediateCities] = useState<string[]>([]);
-  const [selectedStops, setSelectedStops] = useState<string[]>([]);
+  // Estados para Cidades de Passagem (Paradas)
+  const [stopSearchQuery, setStopSearchQuery] = useState("");
+  const [stopSearchResults, setStopSearchResults] = useState<Location[]>([]);
+  const [isSearchingStops, setIsSearchingStops] = useState(false);
+  const [selectedStops, setSelectedStops] = useState<Location[]>([]);
   const [stopMeetingPoints, setStopMeetingPoints] = useState<Record<string, string>>({});
 
   const form = useForm<TripFormValues>({
@@ -96,9 +101,9 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
     },
   });
 
-  const searchLocation = async (query: string) => {
+  const searchLocation = async (query: string, setter: (res: Location[]) => void, loadingSetter: (val: boolean) => void) => {
     if (query.length < 3) return;
-    setIsSearching(true);
+    loadingSetter(true);
     try {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5&addressdetails=1`, {
         headers: { 
@@ -107,16 +112,17 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
         }
       });
       const data = await res.json();
-      setSearchResults(data.map((item: any) => ({
+      setter(data.map((item: any) => ({
         display_name: item.display_name,
         lat: item.lat,
         lon: item.lon,
-        name: item.display_name.split(',')[0]
+        name: item.display_name.split(',')[0],
+        type: item.type
       })));
     } catch (e) {
       console.error(e);
     } finally {
-      setIsSearching(false);
+      loadingSetter(false);
     }
   };
 
@@ -144,8 +150,6 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
         });
         
         setRoutes(fetchedRoutes);
-        const checkpointNames = fetchedRoutes[0].roadNames;
-        setIntermediateCities(checkpointNames);
       }
     } catch (e) {
       console.error("Erro ao calcular rotas rodoviárias:", e);
@@ -160,6 +164,28 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
       fetchRoutes(selectedOrigin, selectedDest);
     }
   }, [selectedOrigin, selectedDest, step, fetchRoutes]);
+
+  const addStop = (loc: Location) => {
+    if (selectedStops.some(s => s.display_name === loc.display_name)) {
+      toast({ title: "Já adicionada!", description: "Essa cidade já está na sua lista de paradas." });
+      return;
+    }
+    setSelectedStops([...selectedStops, loc]);
+    setStopSearchQuery("");
+    setStopSearchResults([]);
+  };
+
+  const removeStop = (idx: number) => {
+    const newStops = [...selectedStops];
+    const cityToRemove = newStops[idx].name;
+    newStops.splice(idx, 1);
+    setSelectedStops(newStops);
+    
+    // Limpar ponto de encontro associado
+    const newMeetingPoints = { ...stopMeetingPoints };
+    delete newMeetingPoints[cityToRemove];
+    setStopMeetingPoints(newMeetingPoints);
+  };
 
   const nextStep = () => setStep(step + 1);
   const prevStep = () => setStep(step - 1);
@@ -197,7 +223,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     onChange={(e) => {
                       form.setValue("origin", e.target.value);
                       setSelectedOrigin(null);
-                      searchLocation(e.target.value);
+                      searchLocation(e.target.value, setSearchResults, setIsSearching);
                     }}
                   />
                   {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-secondary" />}
@@ -244,7 +270,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     onChange={(e) => {
                       form.setValue("destination", e.target.value);
                       setSelectedDest(null);
-                      searchLocation(e.target.value);
+                      searchLocation(e.target.value, setSearchResults, setIsSearching);
                     }}
                   />
                   {isSearching && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-secondary" />}
@@ -291,7 +317,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 </div>
               ) : (
                 <div className="space-y-4">
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Rotas detectadas via OSRM</p>
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Rotas detectadas pela malha rodoviária</p>
                   <div className="space-y-3">
                     {routes.map((r, i) => (
                       <Card key={i} className={cn(
@@ -333,59 +359,75 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-6 animate-in slide-in-from-right-4">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Cidades de Passagem 🏙️</h2>
-                <p className="text-sm text-muted-foreground">Onde mais você pode parar para coletar ou entregar?</p>
+                <p className="text-sm text-muted-foreground">Busque e adicione as cidades onde você aceita parar.</p>
               </div>
-              <div className="space-y-3">
-                {intermediateCities.length > 0 ? (
-                  intermediateCities.map((city, i) => {
-                    const isSelected = selectedStops.includes(city);
-                    return (
-                      <div key={i} className="space-y-2 animate-in slide-in-from-left-2">
-                        <button 
-                          type="button" 
-                          onClick={() => {
-                            if (isSelected) {
-                              setSelectedStops(selectedStops.filter(s => s !== city));
-                            } else {
-                              setSelectedStops([...selectedStops, city]);
-                            }
-                          }}
-                          className={cn(
-                            "w-full p-5 rounded-[1.5rem] border text-left flex justify-between items-center transition-all",
-                            isSelected ? "border-secondary bg-secondary/5" : "border-muted bg-muted/10 opacity-60"
-                          )}
-                        >
-                          <div className="flex items-center gap-3">
-                            <TrendingUp className={cn("h-4 w-4", isSelected ? "text-secondary" : "text-muted-foreground")} />
-                            <span className="text-sm font-bold">{city}</span>
-                          </div>
-                          <div className={cn(
-                            "h-5 w-5 rounded-full border-2 flex items-center justify-center transition-colors",
-                            isSelected ? "bg-secondary border-secondary text-white shadow-md" : "border-muted-foreground/30"
-                          )}>
-                            {isSelected && <Check className="h-3 w-3" />}
-                          </div>
-                        </button>
-                        {isSelected && (
-                          <div className="pl-4 border-l-2 border-secondary/20 space-y-2 animate-in slide-in-from-top-2">
-                            <Input 
-                              placeholder={`Ponto de encontro em ${city}`} 
-                              className="h-12 rounded-xl bg-white border-dashed border-2 focus-visible:ring-secondary/20"
-                              value={stopMeetingPoints[city] || ""}
-                              onChange={(e) => setStopMeetingPoints({...stopMeetingPoints, [city]: e.target.value})}
-                            />
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })
-                ) : (
-                  <div className="p-10 text-center space-y-4 bg-muted/10 rounded-[2.5rem] border border-dashed">
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Trajeto Direto</p>
-                    <p className="text-[10px] text-muted-foreground">Essa rota não detectou grandes pontos de parada automáticos.</p>
+              
+              <div className="space-y-4">
+                {/* Busca de Cidades de Parada */}
+                <div className="relative group">
+                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary" />
+                  <Input 
+                    placeholder="Adicionar cidade de parada..." 
+                    className="pl-12 h-14 rounded-2xl bg-muted/30 border-none text-sm"
+                    value={stopSearchQuery}
+                    onChange={(e) => {
+                      setStopSearchQuery(e.target.value);
+                      searchLocation(e.target.value, setStopSearchResults, setIsSearchingStops);
+                    }}
+                  />
+                  {isSearchingStops && <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-secondary" />}
+                </div>
+
+                {!isSearchingStops && stopSearchResults.length > 0 && (
+                  <div className="bg-white rounded-2xl border shadow-lg overflow-hidden animate-in fade-in zoom-in-95 z-30 relative">
+                    {stopSearchResults.map((loc, i) => (
+                      <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-secondary/5 border-b last:border-0 transition-colors flex items-center gap-3" onClick={() => addStop(loc)}>
+                        <Building2 className="h-4 w-4 text-muted-foreground" />
+                        <div>
+                          <p className="font-bold">{loc.name}</p>
+                          <p className="text-[10px] text-muted-foreground truncate max-w-[250px]">{loc.display_name}</p>
+                        </div>
+                      </button>
+                    ))}
                   </div>
                 )}
+
+                {/* Lista de Cidades Selecionadas */}
+                <div className="space-y-3 pt-2">
+                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest px-1">Cidades Selecionadas ({selectedStops.length})</p>
+                  {selectedStops.length > 0 ? (
+                    selectedStops.map((city, i) => (
+                      <Card key={i} className="rounded-2xl border-none bg-secondary/5 overflow-hidden animate-in slide-in-from-left-2">
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex justify-between items-center">
+                            <div className="flex items-center gap-2">
+                              <MapPinned className="h-4 w-4 text-secondary" />
+                              <span className="text-sm font-bold">{city.name}</span>
+                            </div>
+                            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:bg-destructive/10 rounded-full" onClick={() => removeStop(i)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                          <Input 
+                            placeholder={`Ponto de encontro em ${city.name}`} 
+                            className="h-10 rounded-xl bg-white border-dashed border-2 focus-visible:ring-secondary/20 text-xs"
+                            value={stopMeetingPoints[city.name] || ""}
+                            onChange={(e) => setStopMeetingPoints({...stopMeetingPoints, [city.name]: e.target.value})}
+                          />
+                        </CardContent>
+                      </Card>
+                    ))
+                  ) : (
+                    <div className="p-10 text-center space-y-4 bg-muted/10 rounded-[2.5rem] border border-dashed">
+                      <div className="h-12 w-12 rounded-full bg-muted/20 flex items-center justify-center mx-auto">
+                        <Building2 className="h-6 w-6 text-muted-foreground/40" />
+                      </div>
+                      <p className="text-[10px] text-muted-foreground font-medium">Use a busca acima para adicionar cidades da sua rota e ganhar mais!</p>
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
                 <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Definir Paradas</Button>
@@ -543,24 +585,40 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 <div className="flex gap-5 relative z-10">
                   <div className="flex flex-col items-center gap-1 shrink-0 pt-1">
                     <div className="h-3 w-3 rounded-full bg-secondary" />
-                    <div className="w-[1.5px] h-16 border-l-2 border-dashed border-secondary/40" />
+                    <div className="w-[1.5px] h-24 border-l-2 border-dashed border-secondary/40" />
                     <div className="h-3 w-3 rounded-full bg-secondary" />
                   </div>
                   <div className="flex-1 space-y-8">
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Origem</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Saída de</p>
                       <p className="text-base font-bold">{form.watch("origin")}</p>
+                      <p className="text-[10px] text-muted-foreground italic">Encontro: {form.watch("originMeetingPoint")}</p>
                     </div>
+                    {selectedStops.length > 0 && (
+                      <div className="py-2">
+                        <p className="text-[9px] font-bold text-secondary uppercase tracking-widest mb-2">Paradas em:</p>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedStops.map((s, i) => (
+                            <Badge key={i} variant="outline" className="bg-white/50 border-secondary/20 text-secondary text-[8px]">{s.name}</Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                     <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Destino</p>
+                      <p className="text-[10px] font-bold text-muted-foreground uppercase">Destino Final</p>
                       <p className="text-base font-bold">{form.watch("destination")}</p>
+                      <p className="text-[10px] text-muted-foreground italic">Entrega: {form.watch("destinationMeetingPoint")}</p>
                     </div>
                   </div>
                 </div>
-                <div className="pt-6 border-t border-muted-foreground/10 space-y-4">
-                  <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest">
-                    <span className="text-muted-foreground">Data da Viagem</span>
-                    <span className="text-secondary">{form.watch("departureDate")}</span>
+                <div className="pt-6 border-t border-muted-foreground/10 flex justify-between items-center text-xs font-bold uppercase tracking-widest">
+                  <div className="space-y-1">
+                    <span className="text-muted-foreground block">Data e Hora</span>
+                    <span className="text-secondary">{form.watch("departureDate")} às {form.watch("departureTime")}</span>
+                  </div>
+                  <div className="text-right space-y-1">
+                    <span className="text-muted-foreground block">Capacidade</span>
+                    <span className="text-secondary">{form.watch("maxPackages")} Pacotes</span>
                   </div>
                 </div>
               </Card>
@@ -575,6 +633,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 >
                   Publicar Viagem <Check className="h-6 w-6" />
                 </Button>
+                <Button variant="ghost" type="button" onClick={prevStep} className="w-full text-muted-foreground font-bold">Ajustar Detalhes</Button>
               </div>
             </div>
           )}
