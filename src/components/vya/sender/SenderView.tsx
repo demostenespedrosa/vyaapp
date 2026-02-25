@@ -40,6 +40,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 // Estados detalhados do envio
@@ -381,10 +382,11 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
   const currentStepIndex = steps.findIndex(s => s.id === shipment.status);
 
   const copyCode = (code: string, type: string) => {
-    navigator.clipboard.writeText(code);
-    toast({
-      title: "Copiado! 📋",
-      description: `Código de ${type} copiado para a área de transferência.`,
+    copyToClipboard(code).then(() => {
+      toast({
+        title: "Copiado! 📋",
+        description: `Código de ${type} copiado para a área de transferência.`,
+      });
     });
   };
 

@@ -21,7 +21,10 @@ CREATE TABLE public.profiles (
     phone TEXT,
     role TEXT DEFAULT 'cliente' CHECK (role IN ('cliente', 'admin')),
     avatar_url TEXT,
-    rating NUMERIC(3,2) DEFAULT 5.00,
+    rating NUMERIC(3,2) DEFAULT 0,   -- Começa em 0; sobe conforme avaliações recebidas
+    rating_count INTEGER DEFAULT 0,  -- Total de avaliações recebidas
+    referral_code TEXT UNIQUE,       -- Código de indicação único gerado no cadastro
+    referred_by UUID REFERENCES public.profiles(id) ON DELETE SET NULL, -- Quem indicou
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
@@ -153,6 +156,33 @@ CREATE TABLE public.transactions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW())
 );
 
+-- Tabela de Avaliações (Reputação entre usuários)
+CREATE TABLE public.ratings (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    from_user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    to_user_id   UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+    package_id   UUID REFERENCES public.packages(id) ON DELETE SET NULL,
+    score        INTEGER NOT NULL CHECK (score BETWEEN 1 AND 5),
+    comment      TEXT,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    CONSTRAINT no_self_rating CHECK (from_user_id <> to_user_id)
+);
+CREATE INDEX idx_ratings_to_user   ON public.ratings (to_user_id);
+CREATE INDEX idx_ratings_from_user ON public.ratings (from_user_id);
+
+-- Tabela de Indicações (Programa Indique e Ganhe)
+CREATE TABLE public.referrals (
+    id           UUID         DEFAULT uuid_generate_v4() PRIMARY KEY,
+    referrer_id  UUID         NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    referred_id  UUID         NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+    status       TEXT         NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'credited')),
+    bonus_amount NUMERIC(10,2) NOT NULL DEFAULT 5.00,
+    credited_at  TIMESTAMP WITH TIME ZONE,
+    created_at   TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc', NOW()),
+    CONSTRAINT no_self_referral UNIQUE (referrer_id, referred_id)
+);
+CREATE INDEX idx_referrals_referrer ON public.referrals (referrer_id);
+
 -- =====================================================================================
 -- 3. TRIGGERS E FUNÇÕES AUTOMÁTICAS
 -- =====================================================================================
@@ -161,16 +191,44 @@ CREATE TABLE public.transactions (
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.profiles (id, full_name, email, role)
+  INSERT INTO public.profiles (id, full_name, email, role, rating, rating_count)
   VALUES (
     NEW.id, 
     COALESCE(NEW.raw_user_meta_data->>'full_name', 'Usuário VYA'),
     NEW.email,
-    COALESCE(NEW.raw_user_meta_data->>'role', 'cliente')
+    COALESCE(NEW.raw_user_meta_data->>'role', 'cliente'),
+    0,
+    0
   );
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Função para recalcular a nota do usuário avaliado após cada avaliação inserida
+CREATE OR REPLACE FUNCTION public.recalculate_user_rating()
+RETURNS TRIGGER AS $$
+DECLARE
+  avg_score NUMERIC(3,2);
+  total     INTEGER;
+BEGIN
+  SELECT ROUND(AVG(score)::NUMERIC, 2), COUNT(*)
+  INTO avg_score, total
+  FROM public.ratings
+  WHERE to_user_id = NEW.to_user_id;
+
+  UPDATE public.profiles
+  SET rating       = COALESCE(avg_score, 0),
+      rating_count = total
+  WHERE id = NEW.to_user_id;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger: recalcula nota sempre que uma nova avaliação é inserida
+CREATE TRIGGER on_rating_created
+  AFTER INSERT ON public.ratings
+  FOR EACH ROW EXECUTE FUNCTION public.recalculate_user_rating();
 
 -- Trigger que escuta a tabela auth.users
 CREATE TRIGGER on_auth_user_created
@@ -201,6 +259,8 @@ ALTER TABLE public.vehicles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.trips ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.packages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ratings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.referrals ENABLE ROW LEVEL SECURITY;
 
 -- Função segura para checar se é admin (evita recursão infinita)
 CREATE OR REPLACE FUNCTION public.is_admin()
@@ -214,6 +274,15 @@ $$ LANGUAGE sql SECURITY DEFINER;
 -- Políticas para Profiles
 CREATE POLICY "Usuários podem ver seus próprios perfis" ON public.profiles FOR SELECT USING (auth.uid() = id);
 CREATE POLICY "Admins podem ver todos os perfis" ON public.profiles FOR SELECT USING (public.is_admin());
+
+-- Políticas para Avaliações
+CREATE POLICY "Qualquer autenticado pode ver avaliações" ON public.ratings FOR SELECT USING (auth.role() = 'authenticated');
+CREATE POLICY "Usuário avalia outros"                   ON public.ratings FOR INSERT WITH CHECK (auth.uid() = from_user_id);
+
+-- Políticas para Indicações
+CREATE POLICY "Referrer vê suas indicações" ON public.referrals FOR SELECT USING (auth.uid() = referrer_id);
+CREATE POLICY "Sistema insere indicações"   ON public.referrals FOR INSERT WITH CHECK (auth.uid() = referrer_id);
+CREATE POLICY "Admin atualiza indicações"   ON public.referrals FOR UPDATE USING (public.is_admin());
 CREATE POLICY "Usuários podem atualizar seus próprios perfis" ON public.profiles FOR UPDATE USING (auth.uid() = id);
 
 -- Políticas para Veículos

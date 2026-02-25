@@ -14,7 +14,19 @@ import {
   AlertCircle,
   ArrowLeft,
   CreditCard,
-  Settings
+  Settings,
+  Star,
+  HelpCircle,
+  FileText,
+  Lock,
+  Gift,
+  Copy,
+  Share2,
+  MessageCircle,
+  Phone,
+  Mail,
+  ExternalLink,
+  ChevronDown
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -22,6 +34,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { copyToClipboard } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 export interface UserProfile {
   id: string;
@@ -41,7 +55,7 @@ interface ProfileViewProps {
 }
 
 export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onProfileUpdate }: ProfileViewProps) {
-  const [activeScreen, setActiveScreen] = useState<'menu' | 'personal' | 'security' | 'vehicles'>('menu');
+  const [activeScreen, setActiveScreen] = useState<'menu' | 'personal' | 'security' | 'vehicles' | 'ratings' | 'help' | 'terms' | 'privacy' | 'referral'>('menu');
   const [profile, setProfile] = useState<UserProfile | null>(initialProfile ?? null);
 
   useEffect(() => {
@@ -80,6 +94,16 @@ export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onPr
         return <SecurityScreen onBack={() => setActiveScreen('menu')} />;
       case 'vehicles':
         return <VehiclesScreen onBack={() => setActiveScreen('menu')} />;
+      case 'ratings':
+        return <RatingsScreen onBack={() => setActiveScreen('menu')} profile={profile} mode={mode} />;
+      case 'help':
+        return <HelpScreen onBack={() => setActiveScreen('menu')} />;
+      case 'terms':
+        return <TermsScreen onBack={() => setActiveScreen('menu')} />;
+      case 'privacy':
+        return <PrivacyScreen onBack={() => setActiveScreen('menu')} />;
+      case 'referral':
+        return <ReferralScreen onBack={() => setActiveScreen('menu')} profile={profile} />;
       default:
         return (
           <div className="space-y-8 page-transition pb-32 pt-safe-area-top">
@@ -173,6 +197,78 @@ export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onPr
                     <CreditCard className="h-5 w-5" />
                   </div>
                   <span className="font-bold text-sm">Pagamentos</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('ratings')}
+                className="w-full flex items-center justify-between p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-yellow-50 text-yellow-500">
+                    <Star className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-sm">Minhas Avaliações</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('referral')}
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl active:scale-[0.98] transition-all hover:from-primary/20 hover:to-secondary/20 border border-primary/10"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-primary text-white">
+                    <Gift className="h-5 w-5" />
+                  </div>
+                  <div className="text-left">
+                    <span className="font-bold text-sm block">Indique e Ganhe</span>
+                    <span className="text-[10px] text-muted-foreground font-medium">Ganhe créditos por cada indicado!</span>
+                  </div>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
+              </button>
+            </section>
+
+            <section className="space-y-2 px-4">
+              <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Suporte &amp; Informações</h3>
+
+              <button
+                onClick={() => setActiveScreen('help')}
+                className="w-full flex items-center justify-between p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-500">
+                    <HelpCircle className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-sm">Ajuda &amp; Suporte</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('terms')}
+                className="w-full flex items-center justify-between p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-500">
+                    <FileText className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-sm">Termos de Uso</span>
+                </div>
+                <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
+              </button>
+
+              <button
+                onClick={() => setActiveScreen('privacy')}
+                className="w-full flex items-center justify-between p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all hover:bg-muted/30"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="p-2.5 rounded-2xl bg-slate-100 text-slate-500">
+                    <Lock className="h-5 w-5" />
+                  </div>
+                  <span className="font-bold text-sm">Proteção de Dados</span>
                 </div>
                 <ChevronRight className="h-4 w-4 text-muted-foreground opacity-30" />
               </button>
@@ -682,6 +778,700 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
           >
             {step === 5 ? (isSaving ? 'Salvando...' : 'Concluir Cadastro') : 'Próximo'}
           </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tela: Avaliações ────────────────────────────────────────────────────────
+
+interface RatingRow {
+  id: string;
+  score: number;
+  comment: string | null;
+  created_at: string;
+  profiles: { full_name: string; avatar_url: string | null } | null;
+}
+
+interface RatingsScreenProps {
+  onBack: () => void;
+  profile: UserProfile | null;
+  mode: 'sender' | 'traveler';
+}
+
+function RatingsScreen({ onBack, profile, mode }: RatingsScreenProps) {
+  const [ratings, setRatings] = useState<RatingRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (!profile?.id) { setIsLoading(false); return; }
+    (async () => {
+      const { data, error } = await supabase
+        .from('ratings')
+        .select(`
+          id,
+          score,
+          comment,
+          created_at,
+          profiles!ratings_from_user_id_fkey (full_name, avatar_url)
+        `)
+        .eq('to_user_id', profile.id)
+        .order('created_at', { ascending: false });
+      if (!error && data) setRatings(data as unknown as RatingRow[]);
+      setIsLoading(false);
+    })();
+  }, [profile?.id]);
+
+  // Estatísticas calculadas dos dados reais
+  const totalRatings = ratings.length;
+  const averageScore = totalRatings > 0
+    ? parseFloat((ratings.reduce((acc, r) => acc + r.score, 0) / totalRatings).toFixed(1))
+    : 0;
+  const breakdown = [5, 4, 3, 2, 1].map(stars => ({
+    stars,
+    count: ratings.filter(r => r.score === stars).length,
+  }));
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const getInitials = (name: string | undefined) =>
+    (name ?? '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl font-black tracking-tight">Minhas Avaliações</h1>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* Resumo */}
+        <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border border-yellow-100 rounded-3xl p-6">
+          <div className="flex items-center gap-6">
+            <div className="text-center min-w-[80px]">
+              {isLoading ? (
+                <div className="h-12 w-12 mx-auto rounded-full bg-yellow-100 animate-pulse" />
+              ) : (
+                <>
+                  <div className="text-5xl font-black text-yellow-500">
+                    {totalRatings === 0 ? '—' : averageScore.toFixed(1)}
+                  </div>
+                  <div className="flex items-center justify-center gap-0.5 mt-1">
+                    {[1,2,3,4,5].map(s => (
+                      <Star
+                        key={s}
+                        className={cn(
+                          "h-4 w-4",
+                          totalRatings > 0 && s <= Math.round(averageScore)
+                            ? "fill-yellow-400 text-yellow-400"
+                            : "text-yellow-200"
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1 font-medium">
+                    {totalRatings === 0 ? 'Sem avaliações ainda' : `${totalRatings} avaliação${totalRatings > 1 ? 'ões' : ''}`}
+                  </div>
+                </>
+              )}
+            </div>
+
+            {!isLoading && totalRatings > 0 && (
+              <div className="flex-1 space-y-1">
+                {breakdown.map(({ stars, count }) => (
+                  <div key={stars} className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-muted-foreground w-3">{stars}</span>
+                    <Star className="h-3 w-3 fill-yellow-400 text-yellow-400 flex-shrink-0" />
+                    <div className="flex-1 bg-yellow-100 rounded-full h-2 overflow-hidden">
+                      <div
+                        className="h-2 bg-yellow-400 rounded-full transition-all"
+                        style={{ width: `${(count / totalRatings) * 100}%` }}
+                      />
+                    </div>
+                    <span className="text-xs font-medium text-muted-foreground w-4 text-right">{count}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Lista */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">
+            {mode === 'traveler' ? 'Avaliações de Remetentes' : 'Avaliações de Viajantes'}
+          </h3>
+
+          {isLoading && (
+            <div className="space-y-3">
+              {[0,1,2].map(i => (
+                <div key={i} className="bg-muted/20 rounded-3xl p-4 h-20 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && totalRatings === 0 && (
+            <div className="flex flex-col items-center justify-center py-16 text-center gap-3">
+              <div className="w-16 h-16 rounded-full bg-yellow-50 flex items-center justify-center">
+                <Star className="h-8 w-8 text-yellow-300" />
+              </div>
+              <div className="font-bold text-base">Nenhuma avaliação ainda</div>
+              <p className="text-sm text-muted-foreground max-w-[240px]">
+                Sua reputação é construída conforme você realiza entregas. As avaliações aparecerão aqui.
+              </p>
+            </div>
+          )}
+
+          {!isLoading && ratings.map(r => {
+            const name = r.profiles?.full_name ?? 'Usuário';
+            return (
+              <div key={r.id} className="bg-muted/20 rounded-3xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm flex-shrink-0">
+                      {getInitials(name)}
+                    </div>
+                    <div>
+                      <div className="font-bold text-sm">{name.split(' ')[0]} {name.split(' ').at(-1)?.charAt(0) ?? ''}.</div>
+                      <div className="text-[11px] text-muted-foreground">{formatDate(r.created_at)}</div>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {[1,2,3,4,5].map(s => (
+                      <Star key={s} className={cn("h-3.5 w-3.5", s <= r.score ? "fill-yellow-400 text-yellow-400" : "text-muted-foreground opacity-30")} />
+                    ))}
+                  </div>
+                </div>
+                {r.comment && <p className="text-sm text-muted-foreground leading-relaxed">{r.comment}</p>}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tela: Ajuda ─────────────────────────────────────────────────────────────
+
+function HelpScreen({ onBack }: { onBack: () => void }) {
+  const [openIndex, setOpenIndex] = useState<number | null>(null);
+
+  const faqs = [
+    {
+      question: 'Como funciona o VYA?',
+      answer: 'O VYA conecta remetentes (quem precisa enviar encomendas) com viajantes (quem já vai fazer uma viagem). O remetente publica o pacote e o viajante aceita carregar durante sua viagem, recebendo uma remuneração por isso.',
+    },
+    {
+      question: 'Como funciona o pagamento?',
+      answer: 'O pagamento é feito antecipadamente pela plataforma. O valor fica retido até que a entrega seja confirmada pelo destinatário. Após a confirmação, o valor é liberado para o viajante em até 1 dia útil.',
+    },
+    {
+      question: 'O que acontece se minha encomenda for perdida ou danificada?',
+      answer: 'Caso tenha contratado o seguro na hora do envio, você será reembolsado conforme as condições do seguro. Recomendamos sempre adicionar o seguro para encomendas de valor.',
+    },
+    {
+      question: 'Quanto tempo demora a entrega?',
+      answer: 'O prazo depende da viagem do viajante selecionado. Você pode ver a data estimada antes de confirmar o envio. Geralmente as entregas acontecem entre 1 e 3 dias.',
+    },
+    {
+      question: 'Posso cancelar uma entrega?',
+      answer: 'Sim, você pode cancelar antes que o viajante inicie a viagem, sem custo. Após o início da viagem, o cancelamento pode ter custos conforme nossa política.',
+    },
+    {
+      question: 'Como verificar minha conta?',
+      answer: 'Acesse Perfil → Minha Segurança para verificar seu e-mail, telefone e enviar seus documentos de identidade. Contas verificadas têm mais confiança na plataforma.',
+    },
+    {
+      question: 'Quais tipos de itens posso enviar?',
+      answer: 'Itens legais e não perigosos. É proibido enviar drogas, armas, explosivos, animais vivos, líquidos inflamáveis ou qualquer item que viole a legislação brasileira.',
+    },
+  ];
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl font-black tracking-tight">Ajuda & Suporte</h1>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* Contato rápido */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Fale Conosco</h3>
+          <a
+            href="https://wa.me/5511999999999"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="w-full flex items-center gap-4 p-4 bg-green-50 border border-green-100 rounded-3xl active:scale-[0.98] transition-all"
+          >
+            <div className="p-2.5 rounded-2xl bg-green-500 text-white">
+              <MessageCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm">WhatsApp</div>
+              <div className="text-xs text-muted-foreground">Resposta em até 30 minutos</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground ml-auto" />
+          </a>
+          <a
+            href="mailto:suporte@vyaapp.com"
+            className="w-full flex items-center gap-4 p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all"
+          >
+            <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-500">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm">E-mail</div>
+              <div className="text-xs text-muted-foreground">suporte@vyaapp.com</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground ml-auto" />
+          </a>
+        </div>
+
+        {/* FAQ */}
+        <div className="space-y-2">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Perguntas Frequentes</h3>
+          {faqs.map((faq, i) => (
+            <div key={i} className="bg-muted/20 rounded-3xl overflow-hidden">
+              <button
+                onClick={() => setOpenIndex(openIndex === i ? null : i)}
+                className="w-full flex items-center justify-between p-4 text-left"
+              >
+                <span className="font-bold text-sm pr-4">{faq.question}</span>
+                <ChevronDown className={cn("h-4 w-4 text-muted-foreground flex-shrink-0 transition-transform", openIndex === i && "rotate-180")} />
+              </button>
+              {openIndex === i && (
+                <div className="px-4 pb-4 text-sm text-muted-foreground leading-relaxed">
+                  {faq.answer}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tela: Termos de Uso ─────────────────────────────────────────────────────
+
+function TermsScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl font-black tracking-tight">Termos de Uso</h1>
+      </header>
+
+      <div className="p-4 space-y-6 text-sm text-muted-foreground leading-relaxed">
+        <p className="text-xs text-muted-foreground">Última atualização: 01 de junho de 2025</p>
+
+        {[
+          {
+            title: '1. Aceitação dos Termos',
+            body: 'Ao criar uma conta e utilizar o VYA, você concorda com estes Termos de Uso. Se não concordar com qualquer parte dos termos, não poderá acessar o serviço.',
+          },
+          {
+            title: '2. Descrição do Serviço',
+            body: 'O VYA é uma plataforma tecnológica que conecta remetentes e viajantes para o transporte de encomendas. O VYA não é uma transportadora e não se responsabiliza pela guarda física das encomendas, atuando apenas como intermediário.',
+          },
+          {
+            title: '3. Cadastro e Conta',
+            body: 'Para usar o VYA, você deve ter pelo menos 18 anos, fornecer informações verdadeiras e manter seus dados atualizados. Você é responsável pela segurança da sua senha e por toda atividade em sua conta.',
+          },
+          {
+            title: '4. Responsabilidades do Remetente',
+            body: 'O remetente garante que os itens enviados são lícitos, não perigosos e descritos com precisão. É proibido enviar qualquer item que viole a legislação brasileira. O remetente é responsável pela embalagem adequada.',
+          },
+          {
+            title: '5. Responsabilidades do Viajante',
+            body: 'O viajante se compromete a transportar apenas encomendas aceitas pela plataforma, inspecionar visualmente antes de aceitar e entregar no prazo combinado. O viajante não pode subcontratar entregas.',
+          },
+          {
+            title: '6. Pagamentos e Taxas',
+            body: 'O pagamento é processado pela plataforma e retido até confirmação da entrega. O VYA cobra uma taxa de serviço sobre cada transação, conforme exibido antes da confirmação.',
+          },
+          {
+            title: '7. Cancelamentos',
+            body: 'Cancelamentos antes do início da viagem são gratuitos. Após o início, podem incidir multas conforme a política vigente. O VYA se reserva o direito de cancelar transações suspeitas.',
+          },
+          {
+            title: '8. Limitação de Responsabilidade',
+            body: 'O VYA não se responsabiliza por danos diretos ou indiretos decorrentes do uso da plataforma, exceto nos casos previstos em lei. Nossa responsabilidade é limitada ao valor da transação.',
+          },
+          {
+            title: '9. Modificações',
+            body: 'O VYA pode alterar estes termos a qualquer momento. Alterações entraram em vigor imediatamente após publicação. O uso contínuo da plataforma constitui aceitação dos novos termos.',
+          },
+          {
+            title: '10. Foro',
+            body: 'Fica eleito o foro da Comarca de São Paulo - SP para dirimir quaisquer controvérsias decorrentes destes termos, com renúncia a qualquer outro, por mais privilegiado que seja.',
+          },
+        ].map(({ title, body }) => (
+          <section key={title} className="space-y-2">
+            <h2 className="font-black text-foreground text-sm">{title}</h2>
+            <p>{body}</p>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tela: Proteção de Dados ─────────────────────────────────────────────────
+
+function PrivacyScreen({ onBack }: { onBack: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl font-black tracking-tight">Proteção de Dados</h1>
+      </header>
+
+      <div className="p-4 space-y-6 text-sm text-muted-foreground leading-relaxed">
+        <div className="bg-blue-50 border border-blue-100 rounded-3xl p-4">
+          <div className="flex items-center gap-3 mb-2">
+            <Lock className="h-5 w-5 text-blue-500" />
+            <span className="font-bold text-blue-700 text-sm">Conformidade com a LGPD</span>
+          </div>
+          <p className="text-xs text-blue-600">
+            O VYA está em conformidade com a Lei Geral de Proteção de Dados (Lei nº 13.709/2018). 
+            Seus dados são tratados com segurança e transparência.
+          </p>
+        </div>
+
+        <p className="text-xs text-muted-foreground">Última atualização: 01 de junho de 2025</p>
+
+        {[
+          {
+            title: 'Quais dados coletamos?',
+            body: 'Coletamos dados de identificação (nome, CPF, e-mail, telefone), dados de localização para rotas, dados de pagamento (processados por parceiros certificados), fotos de perfil e documentos para verificação de identidade.',
+          },
+          {
+            title: 'Como usamos seus dados?',
+            body: 'Usamos seus dados para: (i) fornecer e melhorar nossos serviços; (ii) verificar sua identidade e prevenir fraudes; (iii) processar pagamentos; (iv) comunicação sobre pedidos e atualizações; (v) cumprir obrigações legais.',
+          },
+          {
+            title: 'Com quem compartilhamos?',
+            body: 'Compartilhamos dados apenas com: parceiros de pagamento (para processar transações), autoridades regulatórias (quando exigido por lei) e outros usuários da plataforma (somente dados necessários para a entrega).',
+          },
+          {
+            title: 'Por quanto tempo armazenamos?',
+            body: 'Dados de conta são mantidos enquanto você tiver uma conta ativa. Dados de transações são retidos por 5 anos conforme exigência fiscal. Dados de verificação de identidade por 2 anos após encerramento da conta.',
+          },
+          {
+            title: 'Seus direitos (LGPD)',
+            body: 'Você tem direito a: confirmar o tratamento de dados, acessar seus dados, corrigir dados incompletos, solicitar portabilidade, revogar consentimento, solicitar exclusão de dados desnecessários e se opor ao tratamento.',
+          },
+          {
+            title: 'Segurança dos dados',
+            body: 'Utilizamos criptografia TLS em todas as comunicações, armazenamento seguro em nuvem com certificação SOC 2, autenticação multifator e monitoramento contínuo contra acessos não autorizados.',
+          },
+          {
+            title: 'Cookies e rastreamento',
+            body: 'Usamos cookies essenciais para o funcionamento do app e cookies de análise (com seu consentimento) para melhorar a experiência. Você pode gerenciar suas preferências nas configurações do dispositivo.',
+          },
+          {
+            title: 'Encarregado (DPO)',
+            body: 'Nosso Encarregado de Proteção de Dados pode ser contactado pelo e-mail: privacidade@vyaapp.com. Responderemos às suas solicitações em até 15 dias úteis.',
+          },
+        ].map(({ title, body }) => (
+          <section key={title} className="space-y-2">
+            <h2 className="font-black text-foreground text-sm">{title}</h2>
+            <p>{body}</p>
+          </section>
+        ))}
+
+        <div className="pt-2">
+          <a
+            href="mailto:privacidade@vyaapp.com"
+            className="w-full flex items-center gap-4 p-4 bg-muted/20 rounded-3xl active:scale-[0.98] transition-all"
+          >
+            <div className="p-2.5 rounded-2xl bg-blue-50 text-blue-500">
+              <Mail className="h-5 w-5" />
+            </div>
+            <div>
+              <div className="font-bold text-sm">Exercer meus direitos</div>
+              <div className="text-xs text-muted-foreground">privacidade@vyaapp.com</div>
+            </div>
+            <ExternalLink className="h-4 w-4 text-muted-foreground ml-auto" />
+          </a>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Tela: Indique e Ganhe ───────────────────────────────────────────────────
+
+interface ReferralRow {
+  id: string;
+  status: 'pending' | 'credited';
+  bonus_amount: number;
+  created_at: string;
+  credited_at: string | null;
+  profiles: { full_name: string } | null; // referred user
+}
+
+function ReferralScreen({ onBack, profile }: { onBack: () => void; profile: UserProfile | null }) {
+  const { toast } = useToast();
+  const [referralCode, setReferralCode] = useState<string | null>(null);
+  const [referrals, setReferrals] = useState<ReferralRow[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  useEffect(() => {
+    if (!profile?.id) { setIsLoading(false); return; }
+    (async () => {
+      // Carrega o referral_code do próprio perfil
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('referral_code')
+        .eq('id', profile.id)
+        .single();
+
+      const code = prof?.referral_code ?? null;
+      setReferralCode(code);
+
+      // Se não tem código, gera via RPC
+      if (!code) {
+        setIsGenerating(true);
+        const { data: newCode } = await supabase
+          .rpc('generate_referral_code', { user_id: profile.id });
+        if (newCode) setReferralCode(newCode);
+        setIsGenerating(false);
+      }
+
+      // Carrega as indicações feitas por este usuário
+      const { data: refs } = await supabase
+        .from('referrals')
+        .select(`
+          id,
+          status,
+          bonus_amount,
+          created_at,
+          credited_at,
+          profiles!referrals_referred_id_fkey (full_name)
+        `)
+        .eq('referrer_id', profile.id)
+        .order('created_at', { ascending: false });
+
+      if (refs) setReferrals(refs as unknown as ReferralRow[]);
+      setIsLoading(false);
+    })();
+  }, [profile?.id]);
+
+  const referralLink = referralCode
+    ? `https://vyaapp.com/convite/${referralCode}`
+    : '';
+
+  const totalCredited = referrals
+    .filter(r => r.status === 'credited')
+    .reduce((acc, r) => acc + r.bonus_amount, 0);
+
+  const pendingCount = referrals.filter(r => r.status === 'pending').length;
+
+  const handleCopy = (text: string, label: string) => {
+    copyToClipboard(text).then(() => {
+      toast({ title: `${label} copiado!`, description: 'Compartilhe com seus amigos.' });
+    }).catch(() => {
+      toast({ variant: 'destructive', title: 'Erro ao copiar', description: 'Não foi possível copiar o código.' });
+    });
+  };
+
+  const handleShare = async () => {
+    if (!referralLink) return;
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'VYA - Envio inteligente entre cidades',
+          text: `Use meu código ${referralCode} e ganhe desconto no primeiro envio!`,
+          url: referralLink,
+        });
+        return;
+      } catch { /* fallback */ }
+    }
+    handleCopy(referralLink, 'Link');
+  };
+
+  const formatDate = (iso: string) =>
+    new Date(iso).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+  const getInitials = (name: string | undefined) =>
+    (name ?? '?').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
+
+  return (
+    <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-md border-b px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full">
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl font-black tracking-tight">Indique e Ganhe</h1>
+      </header>
+
+      <div className="p-4 space-y-6">
+        {/* Banner com totais reais */}
+        <div className="bg-gradient-to-br from-primary to-primary/70 rounded-3xl p-6 text-white space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="p-3 bg-white/20 rounded-2xl">
+              <Gift className="h-6 w-6" />
+            </div>
+            <div>
+              <div className="font-black text-lg">R$ 5,00 por indicado!</div>
+              <div className="text-white/80 text-xs">A cada amigo que fizer o primeiro envio</div>
+            </div>
+          </div>
+          {/* Stats */}
+          {!isLoading && (
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-white/15 rounded-2xl p-3 text-center">
+                <div className="font-black text-xl">
+                  {totalCredited.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                </div>
+                <div className="text-white/70 text-[11px] mt-0.5">Total Ganho</div>
+              </div>
+              <div className="bg-white/15 rounded-2xl p-3 text-center">
+                <div className="font-black text-xl">{referrals.length}</div>
+                <div className="text-white/70 text-[11px] mt-0.5">
+                  {referrals.length === 1 ? 'Indicação' : 'Indicações'}
+                </div>
+              </div>
+            </div>
+          )}
+          <p className="text-white/70 text-xs leading-relaxed">
+            Compartilhe seu código e ganhe créditos para cada amigo que se cadastrar e realizar o primeiro envio.
+          </p>
+        </div>
+
+        {/* Código */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Seu Código de Indicação</h3>
+          {isLoading || isGenerating ? (
+            <div className="bg-muted/20 rounded-3xl p-4 h-20 animate-pulse" />
+          ) : (
+            <div className="bg-muted/20 rounded-3xl p-4 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <div className="font-black text-2xl tracking-widest text-primary">
+                  {referralCode ?? '—'}
+                </div>
+                {referralLink && (
+                  <div className="text-xs text-muted-foreground mt-0.5 truncate">{referralLink}</div>
+                )}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => referralCode && handleCopy(referralCode, 'Código')}
+                disabled={!referralCode}
+                className="rounded-2xl h-11 w-11 flex-shrink-0"
+              >
+                <Copy className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
+          <Button
+            className="w-full h-14 rounded-2xl font-bold text-base gap-2"
+            onClick={handleShare}
+            disabled={!referralCode || isLoading}
+          >
+            <Share2 className="h-5 w-5" />
+            Compartilhar Link
+          </Button>
+        </div>
+
+        {/* Como funciona */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Como Funciona</h3>
+          {[
+            { step: '1', text: 'Compartilhe seu código ou link com amigos' },
+            { step: '2', text: 'Seu amigo se cadastra usando seu código' },
+            { step: '3', text: 'Ele realiza o primeiro envio pelo VYA' },
+            { step: '4', text: 'Você recebe R$ 5,00 em créditos!' },
+          ].map(({ step, text }) => (
+            <div key={step} className="flex items-center gap-4">
+              <div className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center font-black text-sm flex-shrink-0">
+                {step}
+              </div>
+              <span className="text-sm font-medium">{text}</span>
+            </div>
+          ))}
+        </div>
+
+        {/* Histórico real */}
+        <div className="space-y-3">
+          <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Suas Indicações</h3>
+
+          {isLoading && (
+            <div className="space-y-2">
+              {[0,1].map(i => (
+                <div key={i} className="bg-muted/20 rounded-3xl h-16 animate-pulse" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && referrals.length === 0 && (
+            <div className="flex flex-col items-center justify-center py-10 text-center gap-3">
+              <div className="w-14 h-14 rounded-full bg-primary/10 flex items-center justify-center">
+                <Gift className="h-7 w-7 text-primary/40" />
+              </div>
+              <div className="font-bold text-sm">Nenhuma indicação ainda</div>
+              <p className="text-xs text-muted-foreground max-w-[220px]">
+                Compartilhe seu código e acompanhe aqui as indicações confirmadas.
+              </p>
+            </div>
+          )}
+
+          {!isLoading && referrals.map(r => {
+            const name = r.profiles?.full_name ?? 'Usuário';
+            const isCredited = r.status === 'credited';
+            return (
+              <div key={r.id} className="flex items-center justify-between bg-muted/20 rounded-3xl p-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-primary/10 flex items-center justify-center font-bold text-primary text-sm flex-shrink-0">
+                    {getInitials(name)}
+                  </div>
+                  <div>
+                    <div className="font-bold text-sm">
+                      {name.split(' ')[0]} {name.split(' ').at(-1)?.charAt(0) ?? ''}.
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {isCredited && r.credited_at
+                        ? `Creditado em ${formatDate(r.credited_at)}`
+                        : `Aguardando desde ${formatDate(r.created_at)}`}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="font-bold text-sm text-primary">
+                    {r.bonus_amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </div>
+                  <div className={cn(
+                    "text-[11px] font-medium",
+                    isCredited ? 'text-green-500' : 'text-yellow-500'
+                  )}>
+                    {isCredited ? '✓ Creditado' : '⏳ Pendente'}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+
+          {!isLoading && pendingCount > 0 && (
+            <p className="text-[11px] text-muted-foreground text-center">
+              {pendingCount} indicação{pendingCount > 1 ? 'ões' : ''} aguardando o primeiro envio do indicado
+            </p>
+          )}
         </div>
       </div>
     </div>
