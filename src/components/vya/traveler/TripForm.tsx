@@ -34,6 +34,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PREDEFINED_ROUTES, PredefinedRoute } from "@/lib/constants";
@@ -56,11 +57,14 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
   const [step, setStep] = useState(1);
   
   // States para Busca de Cidades Oficiais
-  const [originSearch, setOriginSearch] = useState("");
-  const [destSearch, setDestSearch] = useState("");
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
   const [selectedDest, setSelectedDest] = useState<string | null>(null);
   
+  // States para os Sheets de Busca
+  const [isOriginSheetOpen, setIsOriginSheetOpen] = useState(false);
+  const [isDestSheetOpen, setIsDestSheetOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+
   const [selectedRoute, setSelectedRoute] = useState<PredefinedRoute | null>(null);
   const [selectedStops, setSelectedStops] = useState<string[]>([]);
   const [stopMeetingPoints, setStopMeetingPoints] = useState<Record<string, string>>({});
@@ -92,29 +96,27 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
     ));
   }, [selectedOrigin]);
 
-  // Autocomplete de Origem
   const filteredOrigins = useMemo(() => {
-    if (originSearch.length < 2 || selectedOrigin) return [];
-    return allOrigins.filter(city => city.toLowerCase().includes(originSearch.toLowerCase()));
-  }, [originSearch, allOrigins, selectedOrigin]);
+    if (!searchQuery) return allOrigins;
+    return allOrigins.filter(city => city.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [searchQuery, allOrigins]);
 
-  // Autocomplete de Destino
   const filteredDestinations = useMemo(() => {
-    if (destSearch.length < 2 || selectedDest) return [];
-    return availableDestinations.filter(city => city.toLowerCase().includes(destSearch.toLowerCase()));
-  }, [destSearch, availableDestinations, selectedDest]);
+    if (!searchQuery) return availableDestinations;
+    return availableDestinations.filter(city => city.toLowerCase().includes(searchQuery.toLowerCase()));
+  }, [searchQuery, availableDestinations]);
 
-  // Lógica de Matching de Rota
   const handleSelectOrigin = (city: string) => {
     setSelectedOrigin(city);
-    setOriginSearch(city);
     setSelectedDest(null);
-    setDestSearch("");
+    setIsOriginSheetOpen(false);
+    setSearchQuery("");
   };
 
   const handleSelectDest = (city: string) => {
     setSelectedDest(city);
-    setDestSearch(city);
+    setIsDestSheetOpen(false);
+    setSearchQuery("");
     
     // Encontrar a rota correspondente
     const route = PREDEFINED_ROUTES.find(r => r.origin === selectedOrigin && r.destination === city);
@@ -163,126 +165,81 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 <p className="text-sm text-muted-foreground">Selecione as cidades atendidas pela VYA.</p>
               </div>
 
-              <div className="space-y-6">
-                {/* ORIGEM AUTOCOMPLETE */}
-                <div className="space-y-2">
-                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Cidade de Saída</FormLabel>
-                  <div className="relative">
+              <div className="space-y-4 relative">
+                {/* Linha conectora visual */}
+                <div className="absolute left-[1.35rem] top-10 bottom-10 w-[2px] bg-muted-foreground/20 border-dashed border-l-2 z-0" />
+
+                {/* Botão de Origem */}
+                <div className="relative z-10">
+                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1 mb-2 block">Cidade de Saída</FormLabel>
+                  <button
+                    type="button"
+                    onClick={() => { setSearchQuery(""); setIsOriginSheetOpen(true); }}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all text-left active:scale-[0.98]",
+                      selectedOrigin ? "bg-secondary/5 border-secondary/30" : "bg-white border-muted hover:border-secondary/50"
+                    )}
+                  >
                     <div className={cn(
-                      "flex items-center gap-3 bg-white p-2 rounded-2xl border shadow-sm transition-all focus-within:ring-2 focus-within:ring-secondary/20",
-                      selectedOrigin && "border-secondary/40 bg-secondary/5"
+                      "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                      selectedOrigin ? "bg-secondary text-white" : "bg-muted text-muted-foreground"
                     )}>
-                      <MapPin className={cn("h-5 w-5 ml-2", selectedOrigin ? "text-secondary" : "text-slate-400")} />
-                      <Input 
-                        placeholder="De onde você sai?" 
-                        className="border-none bg-transparent focus-visible:ring-0 text-base"
-                        value={originSearch}
-                        onChange={(e) => {
-                          setOriginSearch(e.target.value);
-                          if (selectedOrigin) setSelectedOrigin(null);
-                        }}
-                      />
-                      {selectedOrigin && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setSelectedOrigin(null); setOriginSearch(""); }}>
-                          <X className="h-4 w-4" />
-                        </Button>
+                      <MapPin className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {selectedOrigin ? (
+                        <p className="text-base font-black text-foreground truncate">{selectedOrigin}</p>
+                      ) : (
+                        <p className="text-base font-bold text-muted-foreground/60">De onde você sai?</p>
                       )}
                     </div>
-                    {!selectedOrigin && originSearch.length >= 2 && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                        {filteredOrigins.length > 0 ? (
-                          filteredOrigins.map(city => (
-                            <button key={city} type="button" className="w-full text-left p-4 text-sm font-bold hover:bg-secondary/5 border-b last:border-0 transition-colors flex items-center justify-between group" onClick={() => handleSelectOrigin(city)}>
-                              {city}
-                              <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-secondary" />
-                            </button>
-                          ))
-                        ) : (
-                          <div className="p-6 text-center space-y-4">
-                            <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mx-auto">
-                              <MapPinOff className="h-6 w-6" />
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-sm font-bold text-slate-800">Origem não atendida ainda</p>
-                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Queremos chegar aí em breve!</p>
-                            </div>
-                            <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2">
-                              Solicitar Cidade <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  </button>
                 </div>
 
-                {/* DESTINO AUTOCOMPLETE (Habilitado se origem selecionada) */}
-                <div className={cn("space-y-2 transition-opacity", !selectedOrigin && "opacity-30 pointer-events-none")}>
-                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Cidade de Destino</FormLabel>
-                  <div className="relative">
+                {/* Botão de Destino */}
+                <div className={cn("relative z-10 transition-opacity duration-300", !selectedOrigin && "opacity-50 pointer-events-none")}>
+                  <FormLabel className="text-[10px] font-black uppercase tracking-widest text-muted-foreground px-1 mb-2 block">Cidade de Destino</FormLabel>
+                  <button
+                    type="button"
+                    onClick={() => { setSearchQuery(""); setIsDestSheetOpen(true); }}
+                    className={cn(
+                      "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all text-left active:scale-[0.98]",
+                      selectedDest ? "bg-secondary/5 border-secondary/30" : "bg-white border-muted hover:border-secondary/50"
+                    )}
+                  >
                     <div className={cn(
-                      "flex items-center gap-3 bg-white p-2 rounded-2xl border shadow-sm transition-all focus-within:ring-2 focus-within:ring-secondary/20",
-                      selectedDest && "border-secondary/40 bg-secondary/5"
+                      "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
+                      selectedDest ? "bg-secondary text-white" : "bg-muted text-muted-foreground"
                     )}>
-                      <Navigation className={cn("h-5 w-5 ml-2", selectedDest ? "text-secondary" : "text-slate-400")} />
-                      <Input 
-                        placeholder="Para onde você vai?" 
-                        className="border-none bg-transparent focus-visible:ring-0 text-base"
-                        value={destSearch}
-                        onChange={(e) => {
-                          setDestSearch(e.target.value);
-                          if (selectedDest) setSelectedDest(null);
-                        }}
-                      />
-                      {selectedDest && (
-                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full" onClick={() => { setSelectedDest(null); setDestSearch(""); }}>
-                          <X className="h-4 w-4" />
-                        </Button>
+                      <Navigation className="h-4 w-4" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      {selectedDest ? (
+                        <p className="text-base font-black text-foreground truncate">{selectedDest}</p>
+                      ) : (
+                        <p className="text-base font-bold text-muted-foreground/60">Para onde você vai?</p>
                       )}
                     </div>
-                    {!selectedDest && destSearch.length >= 2 && (
-                      <div className="absolute top-full left-0 right-0 mt-2 bg-white border rounded-2xl shadow-xl z-50 overflow-hidden animate-in fade-in zoom-in-95">
-                        {filteredDestinations.length > 0 ? (
-                          filteredDestinations.map(city => (
-                            <button key={city} type="button" className="w-full text-left p-4 text-sm font-bold hover:bg-secondary/5 border-b last:border-0 transition-colors flex items-center justify-between group" onClick={() => handleSelectDest(city)}>
-                              {city}
-                              <ChevronRight className="h-4 w-4 opacity-0 group-hover:opacity-100 transition-opacity text-secondary" />
-                            </button>
-                          ))
-                        ) : (
-                          <div className="p-6 text-center space-y-4">
-                            <div className="h-12 w-12 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mx-auto">
-                              <MapPinOff className="h-6 w-6" />
-                            </div>
-                            <div className="space-y-1">
-                              <p className="text-sm font-bold text-slate-800">Destino não atendido ainda</p>
-                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Sugerimos novas rotas semanalmente!</p>
-                            </div>
-                            <Button variant="outline" size="sm" className="rounded-xl font-bold gap-2">
-                              Solicitar Rota <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                  </button>
                 </div>
               </div>
 
               {selectedRoute && (
-                <div className="p-4 bg-secondary/5 border-2 border-secondary/10 rounded-[2rem] animate-in slide-in-from-top-2">
-                  <div className="flex items-center gap-3 mb-2">
-                    <Sparkles className="h-4 w-4 text-secondary fill-current" />
-                    <span className="text-[10px] font-bold text-secondary uppercase tracking-widest">Rota Oficial Identificada</span>
+                <div className="p-5 bg-secondary/5 border-2 border-secondary/10 rounded-[2rem] animate-in slide-in-from-top-2 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-6 w-6 text-secondary fill-current" />
                   </div>
-                  <p className="text-sm font-bold">{selectedRoute.origin} → {selectedRoute.destination}</p>
-                  <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">
-                    {selectedRoute.distanceKm}km • Aprox. {Math.floor(selectedRoute.averageDurationMin / 60)}h {selectedRoute.averageDurationMin % 60}m
-                  </p>
+                  <div>
+                    <span className="text-[9px] font-black text-secondary uppercase tracking-widest">Rota Oficial Identificada</span>
+                    <p className="text-sm font-black text-foreground mt-0.5">{selectedRoute.origin} → {selectedRoute.destination}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">
+                      {selectedRoute.distanceKm}km • Aprox. {Math.floor(selectedRoute.averageDurationMin / 60)}h {selectedRoute.averageDurationMin % 60}m
+                    </p>
+                  </div>
                 </div>
               )}
 
-              <Button type="button" onClick={nextStep} disabled={!selectedRoute} className="w-full h-14 rounded-2xl bg-secondary font-bold gap-2 shadow-lg shadow-secondary/10 active:scale-95 transition-transform">
+              <Button type="button" onClick={nextStep} disabled={!selectedRoute} className="w-full h-14 rounded-[1.5rem] bg-secondary font-black gap-2 shadow-lg shadow-secondary/20 active:scale-95 transition-all text-base mt-4">
                 Continuar <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
@@ -559,6 +516,104 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
 
         </form>
       </Form>
+
+      {/* Sheet de Origem */}
+      <Sheet open={isOriginSheetOpen} onOpenChange={setIsOriginSheetOpen}>
+        <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b">
+            <SheetTitle className="text-xl font-black tracking-tighter text-left">De onde você sai?</SheetTitle>
+            <div className="relative mt-4">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar cidade de origem..." 
+                className="pl-12 h-14 rounded-[1.5rem] bg-muted/30 border-none text-base font-bold"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-2">
+            {filteredOrigins.length > 0 ? (
+              <div className="space-y-1">
+                {filteredOrigins.map(city => (
+                  <button 
+                    key={city} 
+                    type="button" 
+                    className="w-full text-left p-4 rounded-2xl hover:bg-muted/50 active:bg-muted transition-colors flex items-center gap-4 group" 
+                    onClick={() => handleSelectOrigin(city)}
+                  >
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-secondary/10 group-hover:text-secondary transition-colors">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <span className="text-base font-bold flex-1">{city}</span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-secondary transition-colors" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center space-y-4">
+                <div className="h-16 w-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mx-auto">
+                  <MapPinOff className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-black text-slate-800">Origem não atendida</p>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Queremos chegar aí em breve!</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Sheet de Destino */}
+      <Sheet open={isDestSheetOpen} onOpenChange={setIsDestSheetOpen}>
+        <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-4 border-b">
+            <SheetTitle className="text-xl font-black tracking-tighter text-left">Para onde você vai?</SheetTitle>
+            <div className="relative mt-4">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <Input 
+                placeholder="Buscar cidade de destino..." 
+                className="pl-12 h-14 rounded-[1.5rem] bg-muted/30 border-none text-base font-bold"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                autoFocus
+              />
+            </div>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-2">
+            {filteredDestinations.length > 0 ? (
+              <div className="space-y-1">
+                {filteredDestinations.map(city => (
+                  <button 
+                    key={city} 
+                    type="button" 
+                    className="w-full text-left p-4 rounded-2xl hover:bg-muted/50 active:bg-muted transition-colors flex items-center gap-4 group" 
+                    onClick={() => handleSelectDest(city)}
+                  >
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-secondary/10 group-hover:text-secondary transition-colors">
+                      <Navigation className="h-5 w-5" />
+                    </div>
+                    <span className="text-base font-bold flex-1">{city}</span>
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-secondary transition-colors" />
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="p-12 text-center space-y-4">
+                <div className="h-16 w-16 bg-orange-100 rounded-full flex items-center justify-center text-orange-600 mx-auto">
+                  <MapPinOff className="h-8 w-8" />
+                </div>
+                <div className="space-y-1">
+                  <p className="text-lg font-black text-slate-800">Destino não atendido</p>
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest">Sugerimos novas rotas semanalmente!</p>
+                </div>
+              </div>
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

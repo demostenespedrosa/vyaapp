@@ -343,7 +343,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 )}
               </div>
 
-              <Button type="button" onClick={nextStep} className="w-full h-14 rounded-2xl text-base font-bold gap-2">
+              <Button type="button" onClick={nextStep} className="w-full h-14 rounded-2xl text-base font-bold gap-2 active:scale-[0.98] transition-transform">
                 Continuar <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
@@ -446,14 +446,14 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               <div className="flex gap-3 pt-4">
-                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30">
+                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <Button 
                   type="button" 
                   onClick={nextStep} 
                   disabled={!selectedOrigin || !selectedDest || isCalculatingRoute} 
-                  className="flex-1 h-14 rounded-2xl text-base font-bold"
+                  className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform"
                 >
                   Continuar
                 </Button>
@@ -518,10 +518,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               )}
 
               <div className="flex gap-3">
-                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30">
+                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <Button type="button" onClick={nextStep} disabled={!fiscalInfo || isExtracting} className="flex-1 h-14 rounded-2xl text-base font-bold">
+                <Button type="button" onClick={nextStep} disabled={!fiscalInfo || isExtracting} className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform">
                   Continuar
                 </Button>
               </div>
@@ -586,10 +586,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               <div className="flex gap-3">
-                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30">
+                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl text-base font-bold">
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform">
                   Ver Resumo
                 </Button>
               </div>
@@ -680,10 +680,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               <div className="space-y-3">
-                <Button type="submit" className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-95 transition-transform">
+                <Button type="submit" className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">
                   Pagar com PIX <Sparkles className="h-5 w-5 fill-current" />
                 </Button>
-                <Button variant="ghost" type="button" className="w-full font-bold text-muted-foreground" onClick={prevStep}>
+                <Button variant="ghost" type="button" className="w-full font-bold text-muted-foreground active:scale-95 transition-transform" onClick={prevStep}>
                   Voltar e ajustar
                 </Button>
               </div>

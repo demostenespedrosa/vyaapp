@@ -39,10 +39,27 @@
     position: fixed;
     width: 100%;
     height: 100%;
+    overflow: hidden;
   }
   h1, h2, h3, h4, h5, h6 {
     @apply font-headline font-bold tracking-tight;
   }
+}
+
+/* Scroll nativo para áreas de conteúdo */
+.scrollable-content {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  height: 100%;
+}
+
+/* Ocultar scrollbars para visual mais limpo */
+::-webkit-scrollbar {
+  display: none;
+}
+
+.pt-safe-area-top {
+  padding-top: env(safe-area-inset-top);
 }
 
 .safe-area-bottom {
@@ -53,12 +70,22 @@
   @apply bg-white/80 backdrop-blur-md border-t border-white/20;
 }
 
-/* Animação suave de entrada para telas */
+/* Animação suave de entrada para telas (Fade) */
 .page-transition {
-  animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: fadeIn 0.3s ease-out;
 }
 
-@keyframes slideUp {
-  from { transform: translateY(20px); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
+/* Animação de aprofundamento (Slide da direita) */
+.slide-in-right {
+  animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes slideInRight {
+  from { transform: translateX(100%); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
 }

@@ -28,12 +28,15 @@ import {
   Share2,
   Zap,
   Box,
-  QrCode
+  QrCode,
+  Filter,
+  AlertCircle
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -52,8 +55,8 @@ interface Shipment {
   size: 'P' | 'M' | 'G';
   progress: number;
   price: number;
-  pickupCode: string; // Código de 6 dígitos (000-000)
-  deliveryCode: string; // Código de 6 dígitos (000-000)
+  pickupCode: string;
+  deliveryCode: string;
   recipient: {
     name: string;
     phone: string;
@@ -154,22 +157,13 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchQuery, setSearchQuery] = useState("");
 
-  if (isCreating) {
+  // Se houver um envio selecionado, renderiza a tela de detalhes (simulando navegação nativa)
+  if (selectedShipment) {
     return (
-      <div className="space-y-6 page-transition">
-        <div className="flex items-center gap-4 mb-2">
-          <Button variant="ghost" size="icon" onClick={() => setIsCreating(false)} className="rounded-full bg-muted h-10 w-10 active:scale-90 transition-transform">
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h2 className="text-xl font-black tracking-tighter">Novo Envio</h2>
-        </div>
-        <PackageForm onComplete={() => setIsCreating(false)} />
+      <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto">
+        <ShipmentDetail shipment={selectedShipment} onBack={() => setSelectedShipment(null)} />
       </div>
     );
-  }
-
-  if (selectedShipment) {
-    return <ShipmentDetail shipment={selectedShipment} onBack={() => setSelectedShipment(null)} />;
   }
 
   const filteredShipments = MOCK_SHIPMENTS.filter(s => {
@@ -185,47 +179,99 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     return isTabMatch && isSearchMatch;
   });
 
-  return (
-    <div className="space-y-8 page-transition pb-20">
-      <div className="flex items-end justify-between pt-2 px-1">
-        <div>
-          <h1 className="text-3xl font-black tracking-tighter">Seus Envios</h1>
-          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-1">Gestão de encomendas ativa</p>
-        </div>
-        <Button 
-          onClick={() => setIsCreating(true)}
-          className="rounded-[1.5rem] h-14 px-6 bg-primary hover:bg-primary/90 shadow-xl shadow-primary/20 gap-2 font-black text-sm active:scale-95 transition-all"
-        >
-          <Plus className="h-5 w-5" /> Novo Envio
-        </Button>
-      </div>
+  const activeCount = MOCK_SHIPMENTS.filter(s => s.status !== 'delivered' && s.status !== 'canceled').length;
+  const historyCount = MOCK_SHIPMENTS.filter(s => s.status === 'delivered' || s.status === 'canceled').length;
 
-      <div className="space-y-4">
-        <div className="relative group mx-1">
+  return (
+    <div className="space-y-6 page-transition pb-24">
+      {/* Sheet para Novo Envio */}
+      <Sheet open={isCreating} onOpenChange={setIsCreating}>
+        <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] overflow-hidden flex flex-col">
+          <SheetHeader className="px-6 pt-6 pb-2 border-b">
+            <SheetTitle className="text-xl font-black tracking-tighter text-left">Novo Envio</SheetTitle>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-6">
+            <PackageForm onComplete={() => setIsCreating(false)} />
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Header Nativo de Dashboard */}
+      <header className="pt-4 px-2 space-y-6">
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-2xl font-black tracking-tight text-foreground">Meus Envios</h1>
+            <p className="text-[11px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Gestão Logística</p>
+          </div>
+          <Button 
+            onClick={() => setIsCreating(true)}
+            size="icon"
+            className="h-12 w-12 rounded-full bg-primary text-white shadow-lg shadow-primary/20 active:scale-90 transition-all"
+          >
+            <Plus className="h-6 w-6" />
+          </Button>
+        </div>
+
+        {/* Cards de Resumo (Propósito Maior) */}
+        <div className="grid grid-cols-2 gap-3">
+          <Card className="rounded-[2rem] border-none bg-blue-50 shadow-sm">
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                <Truck className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-3xl font-black text-blue-950 tracking-tighter">{activeCount}</p>
+                <p className="text-[10px] font-bold text-blue-600/80 uppercase tracking-widest">Em Andamento</p>
+              </div>
+            </CardContent>
+          </Card>
+          <Card className="rounded-[2rem] border-none bg-green-50 shadow-sm">
+            <CardContent className="p-4 flex flex-col gap-3">
+              <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center text-green-600">
+                <CheckCircle2 className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-3xl font-black text-green-950 tracking-tighter">{historyCount}</p>
+                <p className="text-[10px] font-bold text-green-600/80 uppercase tracking-widest">Concluídos</p>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </header>
+
+      {/* Busca e Filtro */}
+      <div className="px-2 flex gap-2">
+        <div className="relative flex-1 group">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground group-focus-within:text-primary transition-colors" />
           <Input 
-            placeholder="Rastrear por código ou destino..." 
+            placeholder="Buscar código ou destino..." 
             className="pl-12 h-14 rounded-[1.5rem] bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20 transition-all text-sm font-medium"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
         </div>
+        <Button variant="outline" className="h-14 w-14 rounded-[1.5rem] border-none bg-muted/30 text-muted-foreground active:scale-90 transition-all shrink-0">
+          <Filter className="h-5 w-5" />
+        </Button>
+      </div>
 
-        <div className="flex p-1.5 bg-muted/30 rounded-[2rem] border border-muted/50 backdrop-blur-sm mx-1">
+      {/* Segmented Control Nativo */}
+      <div className="px-2">
+        <div className="flex p-1.5 bg-muted/30 rounded-[2rem] backdrop-blur-sm">
           <button
             onClick={() => setActiveTab('active')}
             className={cn(
-              "flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all",
-              activeTab === 'active' ? "bg-white shadow-md text-primary" : "text-muted-foreground/60 hover:text-primary"
+              "flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300",
+              activeTab === 'active' ? "bg-white shadow-sm text-primary scale-[0.98]" : "text-muted-foreground/60 hover:text-primary"
             )}
           >
-            Em Andamento
+            Ativos
           </button>
           <button
             onClick={() => setActiveTab('history')}
             className={cn(
-              "flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all",
-              activeTab === 'history' ? "bg-white shadow-md text-primary" : "text-muted-foreground/60 hover:text-primary"
+              "flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300",
+              activeTab === 'history' ? "bg-white shadow-sm text-primary scale-[0.98]" : "text-muted-foreground/60 hover:text-primary"
             )}
           >
             Histórico
@@ -233,13 +279,14 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         </div>
       </div>
 
-      <div className="space-y-6 px-1">
+      {/* Lista de Envios */}
+      <div className="space-y-4 px-2">
         {filteredShipments.length > 0 ? (
           filteredShipments.map((shipment) => (
             <ShipmentCard key={shipment.id} shipment={shipment} onClick={() => setSelectedShipment(shipment)} />
           ))
         ) : (
-          <EmptyState onAction={() => setIsCreating(true)} />
+          <EmptyState onAction={() => setIsCreating(true)} tab={activeTab} />
         )}
       </div>
     </div>
@@ -247,97 +294,74 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
 }
 
 function ShipmentCard({ shipment, onClick }: { shipment: Shipment, onClick: () => void }) {
-  const getStatusIcon = (status: ShipmentStatus) => {
+  const getStatusConfig = (status: ShipmentStatus) => {
     switch (status) {
-      case 'searching': return <UserCheck className="h-6 w-6" />;
-      case 'waiting_pickup': return <PackageOpen className="h-6 w-6" />;
-      case 'transit': return <Truck className="h-6 w-6" />;
-      case 'waiting_delivery': return <MapPinned className="h-6 w-6" />;
-      case 'delivered': return <CheckCircle2 className="h-6 w-6" />;
-      default: return <Package className="h-6 w-6" />;
+      case 'searching': return { icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" };
+      case 'waiting_pickup': return { icon: PackageOpen, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" };
+      case 'transit': return { icon: Truck, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" };
+      case 'waiting_delivery': return { icon: MapPinned, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" };
+      case 'delivered': return { icon: CheckCircle2, color: "text-green-600", bg: "bg-green-50", border: "border-green-100" };
+      default: return { icon: Package, color: "text-muted-foreground", bg: "bg-muted", border: "border-muted" };
     }
   };
 
-  const getStatusColor = (status: ShipmentStatus) => {
-    switch (status) {
-      case 'searching': return "bg-orange-50 text-orange-600";
-      case 'waiting_pickup': return "bg-blue-50 text-blue-600";
-      case 'transit': return "bg-primary/10 text-primary";
-      case 'waiting_delivery': return "bg-purple-50 text-purple-600";
-      case 'delivered': return "bg-green-50 text-green-600";
-      default: return "bg-muted text-muted-foreground";
-    }
-  };
+  const config = getStatusConfig(shipment.status);
+  const Icon = config.icon;
 
   return (
     <Card 
       onClick={onClick} 
-      className="rounded-[3rem] border-none shadow-xl hover:shadow-2xl bg-white overflow-hidden active:scale-[0.98] transition-all duration-300 group cursor-pointer"
+      className={cn(
+        "rounded-[2.5rem] border-2 shadow-sm hover:shadow-md bg-white overflow-hidden active:scale-[0.98] active:bg-muted/30 transition-all duration-300 cursor-pointer",
+        config.border
+      )}
     >
-      <CardContent className="p-0">
-        {/* Top Header do Card */}
-        <div className="bg-muted/10 px-8 py-4 flex justify-between items-center border-b border-muted/5">
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{shipment.id}</span>
-            <Badge variant="secondary" className="bg-primary/5 text-primary border-none text-[8px] font-black px-2 py-0.5">
-              TAM {shipment.size}
-            </Badge>
+      <CardContent className="p-5 space-y-4">
+        {/* Header do Card */}
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-3">
+            <div className={cn("h-12 w-12 rounded-[1.2rem] flex items-center justify-center shrink-0", config.bg, config.color)}>
+              <Icon className="h-6 w-6" />
+            </div>
+            <div>
+              <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">{shipment.id}</p>
+              <h4 className="text-base font-black text-foreground tracking-tight leading-none mt-1">
+                {shipment.statusLabel}
+              </h4>
+            </div>
           </div>
-          <p className="text-[10px] font-black text-muted-foreground uppercase tracking-tighter flex items-center gap-1">
-            <Clock className="h-3 w-3" /> {shipment.date}
-          </p>
+          <ChevronRight className="h-5 w-5 text-muted-foreground/40" />
         </div>
 
-        <div className="p-8 space-y-6">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                "h-14 w-14 rounded-[1.5rem] flex items-center justify-center transition-transform group-hover:scale-110 shadow-sm",
-                getStatusColor(shipment.status)
-              )}>
-                {getStatusIcon(shipment.status)}
-              </div>
-              <div>
-                <h4 className="text-lg font-black text-foreground tracking-tight leading-none group-hover:text-primary transition-colors">
-                  {shipment.statusLabel}
-                </h4>
-                <p className="text-xs text-muted-foreground font-medium mt-1 line-clamp-1">{shipment.description}</p>
-              </div>
+        {/* Info Principal */}
+        <div className="pl-[3.75rem]">
+          <p className="text-sm font-bold text-foreground/80 truncate">{shipment.description}</p>
+          
+          <div className="flex items-center gap-2 mt-3">
+            <div className="flex-1 bg-muted/30 rounded-xl p-2.5 flex items-center gap-2">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+              <span className="text-[11px] font-bold truncate">{shipment.to.split(',')[0]}</span>
             </div>
-            <div className="text-right">
-              <p className="text-lg font-black text-primary tracking-tighter">R$ {shipment.price.toFixed(2)}</p>
-              <p className="text-[9px] font-black text-muted-foreground uppercase">Frete Pago</p>
-            </div>
+            <Badge variant="secondary" className="bg-primary/5 text-primary border-none text-[10px] font-black px-3 py-1.5 rounded-xl">
+              R$ {shipment.price.toFixed(2)}
+            </Badge>
           </div>
 
-          {/* Rota Visual */}
-          <div className="flex items-center gap-4 bg-muted/10 p-4 rounded-[2rem] border border-muted/5 overflow-hidden">
-            <div className="flex-1 min-w-0">
-              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Origem</p>
-              <p className="text-xs font-bold truncate text-foreground">{shipment.from.split(',')[0]}</p>
+          {/* Barra de Progresso */}
+          {shipment.status !== 'delivered' && shipment.status !== 'canceled' && (
+            <div className="mt-4 space-y-1.5">
+              <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest">
+                <span className="text-muted-foreground">Progresso</span>
+                <span className={config.color}>{shipment.progress}%</span>
+              </div>
+              <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden">
+                <div 
+                  className={cn("h-full rounded-full transition-all duration-1000 ease-out", config.bg.replace('/10', '').replace('50', '500'))}
+                  style={{ width: `${shipment.progress}%`, backgroundColor: shipment.status === 'transit' ? 'hsl(var(--primary))' : undefined }}
+                />
+              </div>
             </div>
-            <div className="flex flex-col items-center px-2">
-              <ArrowRight className="h-4 w-4 text-primary opacity-30" />
-            </div>
-            <div className="flex-1 min-w-0 text-right">
-              <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Destino</p>
-              <p className="text-xs font-bold truncate text-foreground">{shipment.to.split(',')[0]}</p>
-            </div>
-          </div>
-
-          {/* Progresso com Estilo */}
-          <div className="space-y-2">
-            <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest">
-              <span className="text-muted-foreground">Progresso do Rastreio</span>
-              <span className="text-primary">{shipment.progress}%</span>
-            </div>
-            <div className="h-2 w-full bg-muted/30 rounded-full overflow-hidden">
-              <div 
-                className="h-full bg-primary rounded-full shadow-[0_0_10px_rgba(var(--primary),0.3)] transition-all duration-1000 ease-out"
-                style={{ width: `${shipment.progress}%` }}
-              />
-            </div>
-          </div>
+          )}
         </div>
       </CardContent>
     </Card>
@@ -360,265 +384,231 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
     navigator.clipboard.writeText(code);
     toast({
       title: "Copiado! 📋",
-      description: `Código de ${type} pronto para ser enviado.`,
+      description: `Código de ${type} copiado para a área de transferência.`,
     });
   };
 
   return (
-    <div className="space-y-8 page-transition pb-20">
-      <header className="flex items-center gap-4 pt-2">
-        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full bg-muted/50 h-10 w-10 active:scale-90 transition-transform">
+    <div className="min-h-screen bg-background pb-24">
+      {/* Header Fixo */}
+      <header className="sticky top-0 z-10 bg-background/80 backdrop-blur-xl border-b border-muted/30 px-4 py-4 flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={onBack} className="rounded-full bg-muted/50 h-10 w-10 active:scale-90 transition-transform shrink-0">
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div>
-          <h2 className="text-xl font-black tracking-tighter">Detalhes do Envio</h2>
+        <div className="flex-1 min-w-0">
+          <h2 className="text-lg font-black tracking-tight truncate">Detalhes do Envio</h2>
           <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">{shipment.id}</p>
         </div>
+        <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 text-muted-foreground">
+          <MoreVertical className="h-5 w-5" />
+        </Button>
       </header>
 
-      {/* Hero Status Card (DOPAMINA) */}
-      <Card className="rounded-[3rem] border-none bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white shadow-2xl shadow-primary/30 overflow-hidden relative">
-        <div className="absolute -top-10 -right-10 p-12 opacity-10 group-hover:scale-125 transition-transform duration-700">
-          <Zap className="h-48 w-48 rotate-12 fill-current" />
-        </div>
-        <CardContent className="p-10 relative z-10 space-y-8">
-          <div className="flex justify-between items-start">
-            <div className="space-y-2">
-              <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-3 py-1 font-bold text-[10px] tracking-wider uppercase">Status Logístico</Badge>
-              <h3 className="text-4xl font-black tracking-tighter">{shipment.statusLabel}</h3>
-            </div>
-            <div className="h-14 w-14 rounded-3xl bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
-              <QrCode className="h-7 w-7 text-white" />
-            </div>
+      <div className="p-4 space-y-6">
+        {/* Hero Status Card */}
+        <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-primary via-primary/90 to-primary/80 text-white shadow-xl shadow-primary/20 overflow-hidden relative">
+          <div className="absolute -top-10 -right-10 p-12 opacity-10">
+            <Zap className="h-48 w-48 rotate-12 fill-current" />
           </div>
-          
-          <div className="bg-black/10 backdrop-blur-md p-5 rounded-[2rem] flex items-center gap-4 border border-white/5">
-            <div className="h-10 w-10 rounded-2xl bg-white/10 flex items-center justify-center shrink-0">
-              <ShieldCheck className="h-5 w-5 text-white" />
-            </div>
-            <p className="text-[11px] font-medium leading-relaxed opacity-90">
-              Sua encomenda está protegida pelo **VYA Safe**. O pagamento só é liberado após a confirmação total.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Linha do Tempo Estilizada */}
-      <section className="space-y-6">
-        <div className="flex justify-between items-end px-1">
-          <div>
-            <h4 className="text-xl font-black tracking-tighter">Rastreamento 🗺️</h4>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Histórico de movimentação</p>
-          </div>
-          <Badge className="bg-primary/10 text-primary border-none px-3 py-1 font-black text-[9px] mb-1">
-            AO VIVO
-          </Badge>
-        </div>
-        
-        <div className="bg-white p-8 rounded-[3rem] border border-muted/50 shadow-sm space-y-8 relative">
-          {steps.map((step, idx) => {
-            const isCompleted = idx < currentStepIndex;
-            const isCurrent = idx === currentStepIndex;
-            const isLast = idx === steps.length - 1;
-
-            return (
-              <div key={step.id} className="flex gap-6 relative">
-                {!isLast && (
-                  <div className={cn(
-                    "absolute left-[13px] top-8 w-[2px] h-[calc(100%+32px)] transition-colors duration-500",
-                    isCompleted ? "bg-primary" : "bg-muted"
-                  )} />
-                )}
-                <div className={cn(
-                  "h-7 w-7 rounded-full border-4 z-10 flex items-center justify-center shrink-0 transition-all duration-500 shadow-sm",
-                  isCompleted ? "bg-primary border-primary text-white" : 
-                  isCurrent ? "bg-white border-primary animate-pulse" : "bg-white border-muted"
-                )}>
-                  {isCompleted && <CheckCircle2 className="h-3 w-3" />}
-                </div>
-                <div className={cn(
-                  "flex-1 transition-opacity duration-500",
-                  isCurrent ? "opacity-100" : isCompleted ? "opacity-60" : "opacity-30"
-                )}>
-                  <p className={cn("text-base font-black tracking-tight", isCurrent && "text-primary")}>{step.label}</p>
-                  <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-tighter">{step.sub}</p>
-                </div>
+          <CardContent className="p-8 relative z-10 space-y-6">
+            <div className="flex justify-between items-start">
+              <div className="space-y-1">
+                <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-2.5 py-0.5 font-bold text-[9px] tracking-widest uppercase">Status Atual</Badge>
+                <h3 className="text-3xl font-black tracking-tighter leading-none mt-2">{shipment.statusLabel}</h3>
               </div>
-            );
-          })}
-        </div>
-      </section>
-
-      {/* Códigos de Segurança (O "Cofre") */}
-      {shipment.status !== 'delivered' && (
-        <section className="space-y-6">
-          <div className="px-1">
-            <h4 className="text-xl font-black tracking-tighter">Chaves de Segurança 🔐</h4>
-            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Confirmação via protocolo VYA</p>
-          </div>
-          
-          <div className="grid gap-4">
-            {/* Código de Coleta */}
-            <Card className="rounded-[2.5rem] border-none bg-muted/30 overflow-hidden group">
-              <CardContent className="p-8 space-y-6">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary group-hover:rotate-12 transition-transform">
-                      <Package className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Protocolo de Coleta</p>
-                      <h5 className="text-sm font-black text-foreground">Para o Viajante</h5>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between bg-white p-6 rounded-[2rem] shadow-xl border border-primary/5">
-                  <span className="text-3xl font-black tracking-[0.4rem] text-primary font-code">{shipment.pickupCode}</span>
-                  <Button 
-                    variant="ghost" 
-                    size="icon" 
-                    className="h-12 w-12 rounded-full bg-primary/5 hover:bg-primary/10 transition-colors"
-                    onClick={() => copyCode(shipment.pickupCode, "coleta")}
-                  >
-                    <Copy className="h-5 w-5 text-primary" />
-                  </Button>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-medium leading-relaxed px-2">
-                  Mostre ou informe este código ao viajante apenas **no momento em que ele pegar o pacote**.
-                </p>
-              </CardContent>
-            </Card>
-
-            {/* Código de Entrega */}
-            <Card className="rounded-[2.5rem] border-none bg-muted/30 overflow-hidden group">
-              <CardContent className="p-8 space-y-6">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-3">
-                    <div className="h-12 w-12 rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary group-hover:rotate-12 transition-transform">
-                      <MapPin className="h-6 w-6" />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Protocolo de Entrega</p>
-                      <h5 className="text-sm font-black text-foreground">Para o Destinatário</h5>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between bg-white p-6 rounded-[2rem] shadow-xl border border-secondary/5">
-                  <span className="text-3xl font-black tracking-[0.4rem] text-secondary font-code">{shipment.deliveryCode}</span>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="h-12 w-12 rounded-full bg-secondary/5 hover:bg-secondary/10"
-                      onClick={() => copyCode(shipment.deliveryCode, "entrega")}
-                    >
-                      <Copy className="h-5 w-5 text-secondary" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-secondary/5 hover:bg-secondary/10">
-                      <Share2 className="h-5 w-5 text-secondary" />
-                    </Button>
-                  </div>
-                </div>
-                <p className="text-[10px] text-muted-foreground font-medium leading-relaxed px-2">
-                  Envie este código para o **destinatário**. Ele deve informar ao viajante para liberar o pacote.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-      )}
-
-      {/* Detalhes Técnicos */}
-      <section className="space-y-4">
-        <h4 className="text-xs font-black text-muted-foreground uppercase tracking-widest px-2">Sumário do Item</h4>
-        <Card className="rounded-[3rem] border-muted bg-white overflow-hidden shadow-sm">
-          <CardContent className="p-8 space-y-8">
-            <div className="flex items-center gap-5">
-              <div className="h-14 w-14 rounded-[1.5rem] bg-muted/50 flex items-center justify-center text-muted-foreground">
-                <Box className="h-7 w-7" />
-              </div>
-              <div className="flex-1">
-                <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Conteúdo Declarado</p>
-                <p className="text-lg font-black text-foreground tracking-tight">{shipment.description}</p>
-                <div className="flex gap-2 mt-1">
-                  <Badge variant="secondary" className="bg-primary/5 text-primary text-[9px] font-black border-none px-2 py-0">TAM {shipment.size}</Badge>
-                  <Badge variant="secondary" className="bg-muted text-muted-foreground text-[9px] font-black border-none px-2 py-0">R$ {shipment.price.toFixed(2)}</Badge>
-                </div>
+              <div className="h-12 w-12 rounded-[1.2rem] bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
+                <QrCode className="h-6 w-6 text-white" />
               </div>
             </div>
-
-            <div className="space-y-6 pt-6 border-t border-muted/50">
-              <div className="flex gap-4">
-                <div className="flex flex-col items-center pt-1 shrink-0">
-                  <div className="h-2 w-2 rounded-full bg-primary" />
-                  <div className="w-[1px] h-10 border-l border-dashed border-primary/30" />
-                  <div className="h-2 w-2 rounded-full bg-primary/30" />
-                </div>
-                <div className="flex-1 space-y-4">
-                  <div>
-                    <p className="text-[9px] font-black text-muted-foreground uppercase">Local de Coleta</p>
-                    <p className="text-xs font-bold text-foreground">{shipment.from}</p>
-                  </div>
-                  <div>
-                    <p className="text-[9px] font-black text-muted-foreground uppercase">Local de Entrega</p>
-                    <p className="text-xs font-bold text-foreground">{shipment.to}</p>
-                  </div>
-                </div>
+            
+            <div className="bg-black/10 backdrop-blur-md p-4 rounded-[1.5rem] flex items-center gap-3 border border-white/5">
+              <div className="h-8 w-8 rounded-xl bg-white/10 flex items-center justify-center shrink-0">
+                <ShieldCheck className="h-4 w-4 text-white" />
               </div>
-            </div>
-
-            <div className="pt-6 border-t border-muted/50 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="h-12 w-12 rounded-[1.2rem] bg-muted/50 flex items-center justify-center text-muted-foreground">
-                  <User className="h-6 w-6" />
-                </div>
-                <div>
-                  <p className="text-[9px] font-black text-muted-foreground uppercase">Destinatário</p>
-                  <p className="text-sm font-black text-foreground">{shipment.recipient.name}</p>
-                </div>
-              </div>
-              <Button variant="ghost" size="icon" className="h-12 w-12 rounded-full bg-primary/5 text-primary active:scale-90 transition-transform">
-                <Phone className="h-5 w-5" />
-              </Button>
+              <p className="text-[10px] font-medium leading-tight opacity-90">
+                Protegido pelo **VYA Safe**. Pagamento liberado apenas após confirmação.
+              </p>
             </div>
           </CardContent>
         </Card>
-      </section>
 
-      {/* Ações de Apoio */}
-      <section className="grid grid-cols-2 gap-4 pt-4">
-        <Button variant="outline" className="h-16 rounded-[1.5rem] gap-2 font-black text-sm border-2 border-muted text-muted-foreground active:scale-95 transition-all">
-          <HelpCircle className="h-5 w-5" /> Central de Ajuda
-        </Button>
-        <Button variant="outline" className="h-16 rounded-[1.5rem] gap-2 font-black text-sm border-2 border-destructive/10 text-destructive hover:bg-destructive/5 active:scale-95 transition-all">
-          Cancelar Envio
-        </Button>
-      </section>
+        {/* Códigos de Segurança */}
+        {shipment.status !== 'delivered' && shipment.status !== 'canceled' && (
+          <section className="space-y-4">
+            <div className="px-1">
+              <h4 className="text-lg font-black tracking-tight">Chaves de Segurança 🔐</h4>
+              <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Protocolos de liberação</p>
+            </div>
+            
+            <div className="grid gap-3">
+              {/* Código de Coleta */}
+              <Card className="rounded-[2rem] border-none bg-muted/30">
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                      <Package className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Coleta</p>
+                      <p className="text-xl font-black tracking-widest text-foreground font-code">{shipment.pickupCode}</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-full bg-white shadow-sm active:scale-90"
+                    onClick={() => copyCode(shipment.pickupCode, "coleta")}
+                  >
+                    <Copy className="h-4 w-4 text-primary" />
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Código de Entrega */}
+              <Card className="rounded-[2rem] border-none bg-muted/30">
+                <CardContent className="p-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-xl bg-secondary/10 flex items-center justify-center text-secondary">
+                      <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Entrega</p>
+                      <p className="text-xl font-black tracking-widest text-foreground font-code">{shipment.deliveryCode}</p>
+                    </div>
+                  </div>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-10 w-10 rounded-full bg-white shadow-sm active:scale-90"
+                    onClick={() => copyCode(shipment.deliveryCode, "entrega")}
+                  >
+                    <Copy className="h-4 w-4 text-secondary" />
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          </section>
+        )}
+
+        {/* Linha do Tempo */}
+        <section className="space-y-4">
+          <div className="px-1">
+            <h4 className="text-lg font-black tracking-tight">Rastreamento 🗺️</h4>
+          </div>
+          
+          <div className="bg-white p-6 rounded-[2.5rem] border border-muted/50 shadow-sm space-y-6 relative">
+            {steps.map((step, idx) => {
+              const isCompleted = idx < currentStepIndex;
+              const isCurrent = idx === currentStepIndex;
+              const isLast = idx === steps.length - 1;
+
+              return (
+                <div key={step.id} className="flex gap-4 relative">
+                  {!isLast && (
+                    <div className={cn(
+                      "absolute left-[11px] top-6 w-[2px] h-[calc(100%+16px)] transition-colors duration-500",
+                      isCompleted ? "bg-primary" : "bg-muted"
+                    )} />
+                  )}
+                  <div className={cn(
+                    "h-6 w-6 rounded-full border-[3px] z-10 flex items-center justify-center shrink-0 transition-all duration-500",
+                    isCompleted ? "bg-primary border-primary text-white" : 
+                    isCurrent ? "bg-white border-primary animate-pulse" : "bg-white border-muted"
+                  )}>
+                    {isCompleted && <CheckCircle2 className="h-2.5 w-2.5" />}
+                  </div>
+                  <div className={cn(
+                    "flex-1 pb-2 transition-opacity duration-500",
+                    isCurrent ? "opacity-100" : isCompleted ? "opacity-60" : "opacity-30"
+                  )}>
+                    <p className={cn("text-sm font-black tracking-tight", isCurrent && "text-primary")}>{step.label}</p>
+                    <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest">{step.sub}</p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
+
+        {/* Detalhes do Item */}
+        <section className="space-y-4">
+          <h4 className="text-lg font-black tracking-tight px-1">Resumo do Envio 📦</h4>
+          <Card className="rounded-[2.5rem] border-muted bg-white shadow-sm">
+            <CardContent className="p-6 space-y-6">
+              <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground">
+                  <Box className="h-6 w-6" />
+                </div>
+                <div className="flex-1">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Conteúdo</p>
+                  <p className="text-base font-black text-foreground tracking-tight">{shipment.description}</p>
+                  <div className="flex gap-2 mt-1">
+                    <Badge variant="secondary" className="bg-primary/5 text-primary text-[8px] font-black border-none px-2 py-0">TAM {shipment.size}</Badge>
+                    <Badge variant="secondary" className="bg-muted text-muted-foreground text-[8px] font-black border-none px-2 py-0">R$ {shipment.price.toFixed(2)}</Badge>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pt-4 border-t border-muted/50 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-xl bg-muted/50 flex items-center justify-center text-muted-foreground">
+                    <User className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Destinatário</p>
+                    <p className="text-sm font-black text-foreground">{shipment.recipient.name}</p>
+                  </div>
+                </div>
+                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full bg-primary/5 text-primary active:scale-90">
+                  <Phone className="h-4 w-4" />
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Ações */}
+        <section className="grid grid-cols-2 gap-3 pt-2">
+          <Button variant="outline" className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-muted text-muted-foreground active:scale-95">
+            <HelpCircle className="h-4 w-4" /> Ajuda
+          </Button>
+          <Button variant="outline" className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-destructive/10 text-destructive hover:bg-destructive/5 active:scale-95">
+            Cancelar
+          </Button>
+        </section>
+      </div>
     </div>
   );
 }
 
-function EmptyState({ onAction }: { onAction: () => void }) {
+function EmptyState({ onAction, tab }: { onAction: () => void, tab: 'active' | 'history' }) {
   return (
-    <div className="py-24 text-center space-y-8 animate-in fade-in duration-700">
-      <div className="h-28 w-28 bg-muted/20 rounded-[3rem] flex items-center justify-center mx-auto relative group">
-        <Truck className="h-12 w-12 text-muted-foreground/30 group-hover:scale-110 transition-transform" />
-        <div className="absolute -bottom-2 -right-2 bg-white rounded-full p-3 shadow-lg group-hover:rotate-12 transition-transform">
-          <Package className="h-6 w-6 text-primary/40" />
-        </div>
+    <div className="py-16 text-center space-y-6 animate-in fade-in duration-500">
+      <div className="h-24 w-24 bg-muted/20 rounded-[2.5rem] flex items-center justify-center mx-auto relative">
+        {tab === 'active' ? (
+          <Truck className="h-10 w-10 text-muted-foreground/40" />
+        ) : (
+          <CheckCircle2 className="h-10 w-10 text-muted-foreground/40" />
+        )}
       </div>
       <div className="space-y-2">
-        <h3 className="text-2xl font-black tracking-tighter text-muted-foreground">Sua garagem está vazia...</h3>
-        <p className="text-sm text-muted-foreground/60 max-w-[240px] mx-auto font-medium">
-          Que tal enviar algo hoje e ver a mágica da logística colaborativa acontecer?
+        <h3 className="text-xl font-black tracking-tight text-muted-foreground">
+          {tab === 'active' ? 'Nenhum envio ativo' : 'Histórico vazio'}
+        </h3>
+        <p className="text-xs text-muted-foreground/60 max-w-[200px] mx-auto font-medium">
+          {tab === 'active' 
+            ? 'Você não tem encomendas em trânsito no momento.' 
+            : 'Você ainda não concluiu nenhum envio.'}
         </p>
       </div>
-      <Button 
-        onClick={onAction}
-        className="rounded-[1.5rem] h-14 px-10 bg-primary font-black shadow-xl shadow-primary/20 active:scale-95 transition-all"
-      >
-        Começar Meu Primeiro Envio
-      </Button>
+      {tab === 'active' && (
+        <Button 
+          onClick={onAction}
+          className="rounded-[1.5rem] h-12 px-8 bg-primary font-black shadow-lg shadow-primary/20 active:scale-95 transition-all"
+        >
+          Criar Primeiro Envio
+        </Button>
+      )}
     </div>
   );
 }
