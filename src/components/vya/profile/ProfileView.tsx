@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
   User, 
   Shield, 
@@ -22,19 +23,59 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 
+export interface UserProfile {
+  id: string;
+  full_name: string;
+  email: string;
+  cpf: string;
+  phone: string;
+  avatar_url?: string;
+}
+
 interface ProfileViewProps {
   mode: 'sender' | 'traveler';
   onModeChange: (mode: 'sender' | 'traveler') => void;
   onLogout: () => void;
+  initialProfile?: UserProfile | null;
+  onProfileUpdate?: (p: UserProfile | null) => void;
 }
 
-export function ProfileView({ mode, onModeChange, onLogout }: ProfileViewProps) {
+export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onProfileUpdate }: ProfileViewProps) {
   const [activeScreen, setActiveScreen] = useState<'menu' | 'personal' | 'security' | 'vehicles'>('menu');
+  const [profile, setProfile] = useState<UserProfile | null>(initialProfile ?? null);
+
+  useEffect(() => {
+    if (initialProfile) {
+      setProfile(initialProfile);
+      return;
+    }
+    // Fallback: busca direta se a prop não vier do parent
+    (async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, full_name, cpf, phone, avatar_url')
+        .eq('id', session.user.id)
+        .single();
+      if (error) console.error('ProfileView: erro ao buscar perfil', error.message);
+      if (data) setProfile({ ...data, email: session.user.email || '' });
+    })();
+  }, [initialProfile]);
+
+  const handleProfileUpdate = (updated: UserProfile) => {
+    setProfile(updated);
+    onProfileUpdate?.(updated);
+  };
+
+  const initials = profile?.full_name
+    ? profile.full_name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+    : '?';
 
   const renderScreen = () => {
     switch (activeScreen) {
       case 'personal':
-        return <PersonalDataScreen onBack={() => setActiveScreen('menu')} />;
+        return <PersonalDataScreen onBack={() => setActiveScreen('menu')} profile={profile} onProfileUpdate={handleProfileUpdate} />;
       case 'security':
         return <SecurityScreen onBack={() => setActiveScreen('menu')} />;
       case 'vehicles':
@@ -45,14 +86,14 @@ export function ProfileView({ mode, onModeChange, onLogout }: ProfileViewProps) 
             <div className="text-center space-y-4 pt-6">
               <div className="relative inline-block">
                 <div className="h-28 w-28 rounded-full bg-primary/10 mx-auto flex items-center justify-center text-primary text-4xl font-bold border-4 border-white shadow-xl">
-                  L
+                  {initials}
                 </div>
                 <div className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-secondary border-4 border-white flex items-center justify-center text-white shadow-md">
                   ✓
                 </div>
               </div>
               <div>
-                <h2 className="text-2xl font-bold">Lucas Silveira</h2>
+                <h2 className="text-2xl font-bold">{profile?.full_name || 'Carregando...'}</h2>
                 <p className="text-sm text-muted-foreground font-medium">
                   {mode === 'traveler' ? 'Nível 5 • Super Viajante' : 'Remetente Frequente'}
                 </p>
@@ -160,8 +201,34 @@ export function ProfileView({ mode, onModeChange, onLogout }: ProfileViewProps) 
   );
 }
 
-function PersonalDataScreen({ onBack }: { onBack: () => void }) {
+function PersonalDataScreen({ onBack, profile, onProfileUpdate }: { onBack: () => void; profile: UserProfile | null; onProfileUpdate: (p: UserProfile) => void }) {
   const [docStatus, setDocStatus] = useState<'pending' | 'uploaded' | 'approved'>('pending');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedMsg, setSavedMsg] = useState('');
+
+  useEffect(() => {
+    if (profile) {
+      setFullName(profile.full_name || '');
+      setPhone(profile.phone || '');
+    }
+  }, [profile]);
+
+  const handleSave = async () => {
+    if (!profile) return;
+    setIsSaving(true);
+    const { error } = await supabase
+      .from('profiles')
+      .update({ full_name: fullName, phone })
+      .eq('id', profile.id);
+    if (!error) {
+      onProfileUpdate({ ...profile, full_name: fullName, phone });
+      setSavedMsg('Dados salvos com sucesso!');
+      setTimeout(() => setSavedMsg(''), 3000);
+    }
+    setIsSaving(false);
+  };
 
   return (
     <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto pb-24">
@@ -176,7 +243,7 @@ function PersonalDataScreen({ onBack }: { onBack: () => void }) {
         <div className="flex justify-center">
           <div className="relative">
             <div className="h-24 w-24 rounded-full bg-muted flex items-center justify-center text-2xl font-bold text-muted-foreground">
-              LS
+              {profile?.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?'}
             </div>
             <button className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-primary text-white flex items-center justify-center shadow-md border-2 border-background">
               <Camera className="h-4 w-4" />
@@ -187,19 +254,19 @@ function PersonalDataScreen({ onBack }: { onBack: () => void }) {
         <div className="space-y-4">
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Nome Completo</Label>
-            <Input defaultValue="Lucas Silveira" className="h-14 rounded-2xl bg-muted/30 border-none font-medium" />
+            <Input value={fullName} onChange={e => setFullName(e.target.value)} className="h-14 rounded-2xl bg-muted/30 border-none font-medium" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">E-mail</Label>
-            <Input defaultValue="lucas.silveira@email.com" type="email" className="h-14 rounded-2xl bg-muted/30 border-none font-medium" />
+            <Input value={profile?.email || ''} disabled type="email" className="h-14 rounded-2xl bg-muted/30 border-none font-medium opacity-70" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">Telefone</Label>
-            <Input defaultValue="(11) 98877-6655" type="tel" className="h-14 rounded-2xl bg-muted/30 border-none font-medium" />
+            <Input value={phone} onChange={e => setPhone(e.target.value)} type="tel" className="h-14 rounded-2xl bg-muted/30 border-none font-medium" />
           </div>
           <div className="space-y-2">
             <Label className="text-xs font-bold uppercase tracking-wider text-muted-foreground ml-1">CPF</Label>
-            <Input defaultValue="123.456.789-00" disabled className="h-14 rounded-2xl bg-muted/30 border-none font-medium opacity-70" />
+            <Input value={profile?.cpf || ''} disabled className="h-14 rounded-2xl bg-muted/30 border-none font-medium opacity-70" />
           </div>
         </div>
 
@@ -248,8 +315,9 @@ function PersonalDataScreen({ onBack }: { onBack: () => void }) {
           </Card>
         </div>
 
-        <Button className="w-full h-14 rounded-2xl font-bold text-lg mt-8">
-          Salvar Alterações
+        {savedMsg && <p className="text-center text-sm text-green-600 font-bold">{savedMsg}</p>}
+        <Button onClick={handleSave} disabled={isSaving} className="w-full h-14 rounded-2xl font-bold text-lg mt-8">
+          {isSaving ? 'Salvando...' : 'Salvar Alterações'}
         </Button>
       </div>
     </div>
@@ -324,21 +392,43 @@ function SecurityScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
+type Vehicle = { id: string; type: string; brand: string; model: string; plate: string; color: string; status: string };
+
 function VehiclesScreen({ onBack }: { onBack: () => void }) {
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
-  const [vehicles, setVehicles] = useState([
-    { id: 1, type: 'Carro', model: 'Honda Civic', plate: 'ABC-1234', color: 'Prata', status: 'approved' },
-    { id: 2, type: 'Moto', model: 'Honda CG 160', plate: 'XYZ-9876', color: 'Vermelha', status: 'pending' }
-  ]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetchVehicles();
+  }, []);
+
+  const fetchVehicles = async () => {
+    setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) { setIsLoading(false); return; }
+    const { data } = await supabase
+      .from('vehicles')
+      .select('id, type, brand, model, plate, color, status')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+    if (data) setVehicles(data);
+    setIsLoading(false);
+  };
+
+  const handleRemove = async (id: string) => {
+    setRemovingId(id);
+    await supabase.from('vehicles').delete().eq('id', id);
+    setVehicles(prev => prev.filter(v => v.id !== id));
+    setRemovingId(null);
+  };
 
   if (isAddingVehicle) {
     return (
-      <VehicleForm 
-        onBack={() => setIsAddingVehicle(false)} 
-        onComplete={(newVehicle) => {
-          setVehicles([...vehicles, { id: Date.now(), type: 'Carro', status: 'pending', ...newVehicle }]);
-          setIsAddingVehicle(false);
-        }} 
+      <VehicleForm
+        onBack={() => setIsAddingVehicle(false)}
+        onComplete={() => { setIsAddingVehicle(false); fetchVehicles(); }}
       />
     );
   }
@@ -355,40 +445,64 @@ function VehiclesScreen({ onBack }: { onBack: () => void }) {
       </header>
 
       <div className="p-4 space-y-6">
-        <div className="space-y-4">
-          {vehicles.map((vehicle) => (
-            <Card key={vehicle.id} className="rounded-3xl border-none bg-muted/20 overflow-hidden">
-              <CardContent className="p-0">
-                <div className="p-4 flex items-start justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
-                      <Car className="h-6 w-6 text-primary" />
+        {isLoading ? (
+          <div className="space-y-3">
+            {[1, 2].map(i => (
+              <div key={i} className="h-24 rounded-3xl bg-muted/30 animate-pulse" />
+            ))}
+          </div>
+        ) : vehicles.length === 0 ? (
+          <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
+            <div className="h-16 w-16 rounded-full bg-muted/40 flex items-center justify-center">
+              <Car className="h-8 w-8 text-muted-foreground/40" />
+            </div>
+            <p className="font-bold text-muted-foreground">Nenhum veículo cadastrado</p>
+            <p className="text-xs text-muted-foreground/70">Adicione um veículo para começar a aceitar encomendas</p>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            {vehicles.map((vehicle) => (
+              <Card key={vehicle.id} className="rounded-3xl border-none bg-muted/20 overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="p-4 flex items-start justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center shadow-sm">
+                        <Car className="h-6 w-6 text-primary" />
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">{vehicle.type}</p>
+                        <h3 className="font-bold text-base">{vehicle.brand} {vehicle.model}</h3>
+                        <p className="text-xs text-muted-foreground font-medium">{vehicle.plate} • {vehicle.color}</p>
+                      </div>
                     </div>
-                    <div>
-                      <h3 className="font-bold text-base">{vehicle.model}</h3>
-                      <p className="text-xs text-muted-foreground font-medium">{vehicle.plate} • {vehicle.color}</p>
-                    </div>
+                    {vehicle.status === 'approved' ? (
+                      <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <CheckCircle2 className="h-3 w-3" /> Aprovado
+                      </div>
+                    ) : (
+                      <div className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
+                        <AlertCircle className="h-3 w-3" /> Em Análise
+                      </div>
+                    )}
                   </div>
-                  {vehicle.status === 'approved' ? (
-                    <div className="bg-green-100 text-green-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <CheckCircle2 className="h-3 w-3" /> Aprovado
-                    </div>
-                  ) : (
-                    <div className="bg-orange-100 text-orange-700 text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider flex items-center gap-1">
-                      <AlertCircle className="h-3 w-3" /> Em Análise
-                    </div>
-                  )}
-                </div>
-                <div className="bg-white/50 px-4 py-3 border-t flex justify-end gap-2">
-                  <Button variant="ghost" size="sm" className="text-xs font-bold h-8 rounded-xl">Editar</Button>
-                  <Button variant="ghost" size="sm" className="text-xs font-bold h-8 rounded-xl text-destructive hover:text-destructive">Remover</Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  <div className="bg-white/50 px-4 py-3 border-t flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={removingId === vehicle.id}
+                      onClick={() => handleRemove(vehicle.id)}
+                      className="text-xs font-bold h-8 rounded-xl text-destructive hover:text-destructive"
+                    >
+                      {removingId === vehicle.id ? 'Removendo...' : 'Remover'}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
-        <Button 
+        <Button
           onClick={() => setIsAddingVehicle(true)}
           className="w-full h-14 rounded-2xl font-bold text-lg border-2 border-dashed border-primary/30 bg-primary/5 text-primary hover:bg-primary/10 shadow-none"
         >
@@ -399,18 +513,40 @@ function VehiclesScreen({ onBack }: { onBack: () => void }) {
   );
 }
 
-function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (vehicle: any) => void }) {
+function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: () => void }) {
   const [step, setStep] = useState(1);
+  const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
+    type: '',
     brand: '',
     model: '',
     color: '',
     plate: ''
   });
 
-  const handleNext = () => {
-    if (step < 4) setStep(step + 1);
-    else onComplete(formData);
+  const VEHICLE_TYPES = ['Carro', 'Moto', 'Van', 'Caminhonete', 'Caminhão'];
+
+  const handleNext = async () => {
+    if (step < 5) {
+      setStep(step + 1);
+    } else {
+      setIsSaving(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        const { error } = await supabase.from('vehicles').insert({
+          user_id: session.user.id,
+          type: formData.type,
+          brand: formData.brand,
+          model: formData.model,
+          color: formData.color,
+          plate: formData.plate,
+          status: 'pending',
+        });
+        if (error) console.error('VehicleForm: erro ao inserir veículo', error.message);
+      }
+      setIsSaving(false);
+      onComplete();
+    }
   };
 
   const handleBack = () => {
@@ -420,10 +556,11 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
 
   const isStepValid = () => {
     switch (step) {
-      case 1: return formData.brand.trim().length > 0;
-      case 2: return formData.model.trim().length > 0;
-      case 3: return formData.color.trim().length > 0;
-      case 4: return formData.plate.trim().length > 0;
+      case 1: return formData.type.length > 0;
+      case 2: return formData.brand.trim().length > 0;
+      case 3: return formData.model.trim().length > 0;
+      case 4: return formData.color.trim().length > 0;
+      case 5: return formData.plate.trim().length > 0;
       default: return false;
     }
   };
@@ -435,11 +572,11 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex gap-1">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className={cn("h-1.5 w-8 rounded-full transition-colors", step >= i ? "bg-primary" : "bg-muted")} />
+          {[1, 2, 3, 4, 5].map((i) => (
+            <div key={i} className={cn("h-1.5 w-7 rounded-full transition-colors", step >= i ? "bg-primary" : "bg-muted")} />
           ))}
         </div>
-        <div className="w-10" /> {/* Spacer */}
+        <div className="w-10" />
       </header>
 
       <div className="flex-1 p-6 flex flex-col">
@@ -447,12 +584,37 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
               <div className="space-y-2">
-                <h2 className="text-2xl font-black tracking-tight">Qual a marca do veículo?</h2>
+                <h2 className="text-2xl font-black tracking-tight">Que tipo de veículo?</h2>
+                <p className="text-muted-foreground text-sm">Selecione o tipo para continuar</p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                {VEHICLE_TYPES.map(type => (
+                  <button
+                    key={type}
+                    onClick={() => setFormData({ ...formData, type })}
+                    className={cn(
+                      "h-16 rounded-2xl font-bold text-sm border-2 transition-all active:scale-95",
+                      formData.type === type
+                        ? "border-primary bg-primary text-white shadow-md"
+                        : "border-muted bg-muted/20 text-foreground hover:border-primary/40"
+                    )}
+                  >
+                    {type}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
+              <div className="space-y-2">
+                <h2 className="text-2xl font-black tracking-tight">Qual a marca?</h2>
                 <p className="text-muted-foreground text-sm">Ex: Honda, Toyota, Volkswagen...</p>
               </div>
-              <Input 
+              <Input
                 autoFocus
-                placeholder="Digite a marca" 
+                placeholder="Digite a marca"
                 className="h-14 rounded-2xl bg-muted/30 border-none font-medium text-lg"
                 value={formData.brand}
                 onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
@@ -460,15 +622,15 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
             </div>
           )}
 
-          {step === 2 && (
+          {step === 3 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
               <div className="space-y-2">
                 <h2 className="text-2xl font-black tracking-tight">Qual o modelo?</h2>
                 <p className="text-muted-foreground text-sm">Ex: Civic, Corolla, Gol...</p>
               </div>
-              <Input 
+              <Input
                 autoFocus
-                placeholder="Digite o modelo" 
+                placeholder="Digite o modelo"
                 className="h-14 rounded-2xl bg-muted/30 border-none font-medium text-lg"
                 value={formData.model}
                 onChange={(e) => setFormData({ ...formData, model: e.target.value })}
@@ -476,15 +638,15 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
             </div>
           )}
 
-          {step === 3 && (
+          {step === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
               <div className="space-y-2">
                 <h2 className="text-2xl font-black tracking-tight">Qual a cor?</h2>
                 <p className="text-muted-foreground text-sm">Ex: Prata, Preto, Branco...</p>
               </div>
-              <Input 
+              <Input
                 autoFocus
-                placeholder="Digite a cor" 
+                placeholder="Digite a cor"
                 className="h-14 rounded-2xl bg-muted/30 border-none font-medium text-lg"
                 value={formData.color}
                 onChange={(e) => setFormData({ ...formData, color: e.target.value })}
@@ -492,30 +654,33 @@ function VehicleForm({ onBack, onComplete }: { onBack: () => void, onComplete: (
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
               <div className="space-y-2">
                 <h2 className="text-2xl font-black tracking-tight">Qual a placa?</h2>
                 <p className="text-muted-foreground text-sm">Digite a placa do veículo</p>
               </div>
-              <Input 
+              <Input
                 autoFocus
-                placeholder="ABC-1234" 
+                placeholder="ABC-1234"
                 className="h-14 rounded-2xl bg-muted/30 border-none font-medium text-lg uppercase"
                 value={formData.plate}
                 onChange={(e) => setFormData({ ...formData, plate: e.target.value.toUpperCase() })}
               />
+              <div className="rounded-2xl bg-orange-50 border border-orange-100 p-4 text-xs text-orange-700 font-medium">
+                Após o cadastro, seu veículo passará por análise antes de aparecer como disponível.
+              </div>
             </div>
           )}
         </div>
 
         <div className="pt-6 pb-safe-area-bottom pb-24">
-          <Button 
+          <Button
             className="w-full h-14 rounded-2xl font-bold text-lg"
             onClick={handleNext}
-            disabled={!isStepValid()}
+            disabled={!isStepValid() || isSaving}
           >
-            {step === 4 ? 'Concluir Cadastro' : 'Próximo'}
+            {step === 5 ? (isSaving ? 'Salvando...' : 'Concluir Cadastro') : 'Próximo'}
           </Button>
         </div>
       </div>

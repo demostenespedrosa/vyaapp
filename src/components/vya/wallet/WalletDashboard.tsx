@@ -1,18 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
-  Wallet, 
   ArrowUpRight, 
   ArrowDownLeft, 
   TrendingUp, 
   Clock, 
   CheckCircle2, 
-  AlertCircle, 
   ChevronRight,
   Plus,
-  ArrowRight,
-  Banknote,
   Coins,
   History,
   Sparkles,
@@ -25,27 +22,86 @@ import { cn } from "@/lib/utils";
 
 interface Transaction {
   id: string;
-  type: 'credit' | 'debit' | 'withdrawal';
-  title: string;
+  type: 'payment' | 'withdrawal';
   date: string;
   amount: number;
   status: 'completed' | 'pending' | 'failed';
 }
 
+function formatDate(iso: string) {
+  const d = new Date(iso);
+  const now = new Date();
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86400000);
+  const time = d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  if (diffDays === 0) return `Hoje, ${time}`;
+  if (diffDays === 1) return `Ontem, ${time}`;
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function travelerLevel(total: number) {
+  if (total >= 3000) return 'Diamante';
+  if (total >= 1500) return 'Ouro';
+  if (total >= 500) return 'Prata';
+  return 'Bronze';
+}
+
 export function WalletDashboard() {
   const [activeTab, setActiveTab] = useState<'all' | 'earnings' | 'withdrawals'>('all');
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [totalBalance, setTotalBalance] = useState(0);
+  const [pendingBalance, setPendingBalance] = useState(0);
+  const [lifeTimeEarnings, setLifeTimeEarnings] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const transactions: Transaction[] = [
-    { id: 'VY-9821', type: 'credit', title: 'Viagem Caruaru → Recife', date: 'Hoje, 16:45', amount: 145.50, status: 'pending' },
-    { id: 'VY-4412', type: 'credit', title: 'Viagem Gravatá → Vitória', date: 'Hoje, 12:30', amount: 85.20, status: 'completed' },
-    { id: 'TX-7711', type: 'withdrawal', title: 'Saque para Conta Corrente', date: 'Ontem, 09:15', amount: -150.00, status: 'completed' },
-    { id: 'VY-7723', type: 'credit', title: 'Viagem Recife → Caruaru', date: '12 Jan, 2024', amount: 120.00, status: 'completed' },
-    { id: 'TX-5510', type: 'credit', title: 'Bônus de Indicação', date: '10 Jan, 2024', amount: 50.00, status: 'completed' },
-  ];
+  useEffect(() => {
+    fetchData();
+  }, []);
 
-  const totalBalance = 450.20;
-  const pendingBalance = 145.50;
-  const lifeTimeEarnings = 1240.00;
+  const fetchData = async () => {
+    setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.user) { setIsLoading(false); return; }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .select('id, type, amount, status, created_at')
+      .eq('user_id', session.user.id)
+      .order('created_at', { ascending: false });
+
+    if (error) console.error('WalletDashboard fetch error:', error.message);
+
+    if (data) {
+      const txs: Transaction[] = data.map(t => ({
+        id: t.id,
+        type: t.type,
+        date: formatDate(t.created_at),
+        amount: Number(t.amount),
+        status: t.status,
+      }));
+      setTransactions(txs);
+
+      const completedPayments = txs.filter(t => t.type === 'payment' && t.status === 'completed');
+      const completedWithdrawals = txs.filter(t => t.type === 'withdrawal' && t.status === 'completed');
+      const pending = txs.filter(t => t.type === 'payment' && t.status === 'pending');
+
+      const totalEarned = completedPayments.reduce((s, t) => s + t.amount, 0);
+      const totalWithdrawn = completedWithdrawals.reduce((s, t) => s + t.amount, 0);
+      const totalPending = pending.reduce((s, t) => s + t.amount, 0);
+
+      setLifeTimeEarnings(totalEarned);
+      setPendingBalance(totalPending);
+      setTotalBalance(totalEarned - totalWithdrawn);
+    }
+    setIsLoading(false);
+  };
+
+  const filtered = transactions.filter(tx => {
+    if (activeTab === 'earnings') return tx.type === 'payment';
+    if (activeTab === 'withdrawals') return tx.type === 'withdrawal';
+    return true;
+  });
+
+  const level = travelerLevel(lifeTimeEarnings);
 
   return (
     <div className="space-y-6 page-transition pb-24">
@@ -84,8 +140,11 @@ export function WalletDashboard() {
               <div className="flex items-baseline gap-1">
                 <span className="text-xl font-bold opacity-70">R$</span>
                 <h2 className="text-5xl font-black tracking-tighter">
-                  {totalBalance.toFixed(2).split('.')[0]}
-                  <span className="text-2xl opacity-70">,{totalBalance.toFixed(2).split('.')[1]}</span>
+                  {isLoading ? (
+                    <span className="inline-block h-10 w-32 bg-white/20 animate-pulse rounded-xl" />
+                  ) : (
+                    <>{totalBalance.toFixed(2).split('.')[0]}<span className="text-2xl opacity-70">,{totalBalance.toFixed(2).split('.')[1]}</span></>
+                  )}
                 </h2>
               </div>
             </div>
@@ -110,7 +169,9 @@ export function WalletDashboard() {
               <TrendingUp className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-black text-green-950 tracking-tighter">R$ {lifeTimeEarnings.toFixed(0)}</p>
+              <p className="text-2xl font-black text-green-950 tracking-tighter">
+                {isLoading ? <span className="inline-block h-7 w-24 bg-green-200 animate-pulse rounded-lg" /> : `R$ ${lifeTimeEarnings.toFixed(0)}`}
+              </p>
               <p className="text-[10px] font-bold text-green-600/80 uppercase tracking-widest">Ganhos Totais</p>
             </div>
           </CardContent>
@@ -121,7 +182,9 @@ export function WalletDashboard() {
               <Award className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-black text-blue-950 tracking-tighter">Ouro</p>
+              <p className="text-2xl font-black text-blue-950 tracking-tighter">
+                {isLoading ? <span className="inline-block h-7 w-20 bg-blue-200 animate-pulse rounded-lg" /> : level}
+              </p>
               <p className="text-[10px] font-bold text-blue-600/80 uppercase tracking-widest">Nível de Viajante</p>
             </div>
           </CardContent>
@@ -148,50 +211,68 @@ export function WalletDashboard() {
         </div>
 
         <div className="space-y-3 px-2">
-          {transactions.map((tx) => (
-            <Card key={tx.id} className="rounded-[2rem] border-2 border-muted/50 shadow-sm hover:shadow-md bg-white overflow-hidden active:scale-[0.98] active:bg-muted/30 transition-all duration-300 cursor-pointer">
-              <CardContent className="p-4 flex items-center gap-4">
-                <div className={cn(
-                  "h-12 w-12 rounded-[1.2rem] flex items-center justify-center shrink-0",
-                  tx.type === 'credit' ? 'bg-green-50 text-green-600' : 'bg-secondary/10 text-secondary'
-                )}>
-                  {tx.type === 'credit' ? <ArrowDownLeft className="h-6 w-6" /> : <ArrowUpRight className="h-6 w-6" />}
-                </div>
-                
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center gap-2">
-                    <p className="text-sm font-bold text-foreground truncate">{tx.title}</p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
-                      {tx.date}
-                    </p>
-                    {tx.status === 'pending' && (
-                      <Badge className="bg-orange-100 text-orange-700 border-none text-[8px] font-black px-2 py-0.5">
-                        EM ROTA
-                      </Badge>
-                    )}
-                  </div>
-                </div>
-
-                <div className="text-right space-y-1">
-                  <p className={cn(
-                    "text-base font-black tracking-tight",
-                    tx.type === 'credit' ? 'text-green-600' : 'text-foreground'
+          {isLoading ? (
+            [1,2,3].map(i => (
+              <div key={i} className="h-20 rounded-[2rem] bg-muted/30 animate-pulse" />
+            ))
+          ) : filtered.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+              <div className="h-14 w-14 rounded-full bg-muted/40 flex items-center justify-center">
+                <History className="h-7 w-7 text-muted-foreground/40" />
+              </div>
+              <p className="font-bold text-muted-foreground text-sm">Nenhuma movimentação encontrada</p>
+            </div>
+          ) : (
+            filtered.map((tx) => (
+              <Card key={tx.id} className="rounded-[2rem] border-2 border-muted/50 shadow-sm hover:shadow-md bg-white overflow-hidden active:scale-[0.98] active:bg-muted/30 transition-all duration-300 cursor-pointer">
+                <CardContent className="p-4 flex items-center gap-4">
+                  <div className={cn(
+                    "h-12 w-12 rounded-[1.2rem] flex items-center justify-center shrink-0",
+                    tx.type === 'payment' ? 'bg-green-50 text-green-600' : 'bg-secondary/10 text-secondary'
                   )}>
-                    {tx.amount > 0 ? '+' : ''} R$ {Math.abs(tx.amount).toFixed(2)}
-                  </p>
-                  <div className="flex items-center justify-end gap-1">
-                    {tx.status === 'completed' ? (
-                      <CheckCircle2 className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Clock className="h-3 w-3 text-orange-500" />
-                    )}
+                    {tx.type === 'payment' ? <ArrowDownLeft className="h-6 w-6" /> : <ArrowUpRight className="h-6 w-6" />}
                   </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  
+                  <div className="flex-1 min-w-0 space-y-1">
+                    <p className="text-sm font-bold text-foreground truncate">
+                      {tx.type === 'payment' ? 'Ganho de entrega' : 'Saque realizado'}
+                    </p>
+                    <div className="flex items-center gap-2">
+                      <p className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">
+                        {tx.date}
+                      </p>
+                      {tx.status === 'pending' && (
+                        <Badge className="bg-orange-100 text-orange-700 border-none text-[8px] font-black px-2 py-0.5">
+                          PENDENTE
+                        </Badge>
+                      )}
+                      {tx.status === 'failed' && (
+                        <Badge className="bg-red-100 text-red-700 border-none text-[8px] font-black px-2 py-0.5">
+                          FALHOU
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="text-right space-y-1">
+                    <p className={cn(
+                      "text-base font-black tracking-tight",
+                      tx.type === 'payment' ? 'text-green-600' : 'text-foreground'
+                    )}>
+                      {tx.type === 'payment' ? '+' : '-'} R$ {tx.amount.toFixed(2)}
+                    </p>
+                    <div className="flex items-center justify-end gap-1">
+                      {tx.status === 'completed' ? (
+                        <CheckCircle2 className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <Clock className="h-3 w-3 text-orange-500" />
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </div>
 
         {/* Call to Action Final */}

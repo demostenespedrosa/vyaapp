@@ -24,21 +24,24 @@ import {
   Package as PackageIcon,
   ShieldCheck,
   CreditCard,
-  Search,
   X,
   Route,
   ShieldAlert,
   Info,
   User,
-  Phone
+  Phone,
+  Clock,
+  AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/lib/supabase";
+import { CitySelect, type CityOption } from "@/components/vya/shared/CitySelect";
 
 const formSchema = z.object({
   description: z.string().min(5, "Conta pra gente o que tem dentro!"),
-  origin: z.string().min(3, "Onde o viajante retira?"),
-  destination: z.string().min(3, "Onde entregamos?"),
+  origin: z.string().min(1, "Selecione a cidade de origem"),
+  destination: z.string().min(1, "Selecione a cidade de destino"),
   size: z.enum(["P", "M", "G"]),
   recipientName: z.string().min(3, "Nome do destinatário é obrigatório"),
   recipientPhone: z.string().min(10, "Telefone/WhatsApp inválido"),
@@ -46,24 +49,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-interface OsmLocation {
-  display_name: string;
-  lat: string;
-  lon: string;
-  address?: {
-    city?: string;
-    town?: string;
-    village?: string;
-    municipality?: string;
-    suburb?: string;
-    hamlet?: string;
-    state?: string;
-    road?: string;
-    house_number?: string;
-  };
-  simplifiedName?: string;
-}
 
 export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
@@ -75,17 +60,35 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [withInsurance, setWithInsurance] = useState(true);
 
-  // States para busca de endereço
-  const [originResults, setOriginResults] = useState<OsmLocation[]>([]);
-  const [destResults, setDestResults] = useState<OsmLocation[]>([]);
-  const [isSearchingOrigin, setIsSearchingOrigin] = useState(false);
-  const [isSearchingDest, setIsSearchingDest] = useState(false);
-  const [selectedOrigin, setSelectedOrigin] = useState<OsmLocation | null>(null);
-  const [selectedDest, setSelectedDest] = useState<OsmLocation | null>(null);
-  
-  // Distância rodoviária
+  // Cidades selecionadas
+  const [selectedOrigin, setSelectedOrigin] = useState<CityOption | null>(null);
+  const [selectedDest, setSelectedDest] = useState<CityOption | null>(null);
+
+  // Rota cadastrada
+  const [matchedRoute, setMatchedRoute] = useState<any | null>(null);
+  const [routeNotFound, setRouteNotFound] = useState(false);
   const [calculatedDistance, setCalculatedDistance] = useState<number>(0);
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Tabela de preços do admin
+  const [pricingConfig, setPricingConfig] = useState<any | null>(null);
+  const [platformFeePercent, setPlatformFeePercent] = useState<number>(20);
+  const [pricingLoading, setPricingLoading] = useState(true);
+
+  useEffect(() => {
+    const loadPricing = async () => {
+      try {
+        const { data: p } = await supabase.from('configs').select('value').eq('key', 'pricing_table').single();
+        if (p) setPricingConfig(p.value);
+        const { data: f } = await supabase.from('configs').select('value').eq('key', 'platform_fee_percent').single();
+        if (f != null) setPlatformFeePercent(Number(f.value));
+      } finally {
+        setPricingLoading(false);
+      }
+    };
+    loadPricing();
+  }, []);
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
@@ -124,80 +127,57 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }
 
-  // Função para simplificar o endereço (Cidade, Estado)
-  const formatLocationName = (loc: OsmLocation): string => {
-    if (!loc.address) return loc.display_name.split(',')[0];
-    
-    const city = loc.address.city || loc.address.town || loc.address.village || loc.address.municipality || loc.address.suburb || loc.address.hamlet;
-    const state = loc.address.state;
-    const road = loc.address.road;
-    
-    if (road && city) {
-      return `${road}, ${city} - ${state}`;
-    }
-    
-    if (city && state) {
-      return `${city}, ${state}`;
-    }
-    
-    return loc.display_name.split(',').slice(0, 2).join(', ');
-  };
-
-  // Busca de endereço no OpenStreetMap (Nominatim)
-  const searchOsm = async (query: string, setResults: (res: OsmLocation[]) => void, setSearching: (val: boolean) => void) => {
-    if (query.length < 3) return;
-    setSearching(true);
-    try {
-      const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=br&limit=5&addressdetails=1`, {
-        headers: {
-          'Accept-Language': 'pt-BR',
-          'User-Agent': 'VYA-Logistics-App-Prototype'
-        }
-      });
-      const data = await response.json();
-      
-      const simplifiedData = data.map((item: OsmLocation) => ({
-        ...item,
-        simplifiedName: formatLocationName(item)
-      }));
-      
-      setResults(simplifiedData);
-    } catch (e) {
-      console.error(e);
-      toast({ variant: "destructive", title: "Erro na busca", description: "Não conseguimos buscar o endereço agora." });
-    } finally {
-      setSearching(false);
-    }
-  };
-
-  // Cálculo de distância RODOVIÁRIA via OSRM API
-  const fetchRoadDistance = useCallback(async (origin: OsmLocation, dest: OsmLocation) => {
+  // Busca rota cadastrada pelo admin
+  const lookupRoute = useCallback(async (origin: CityOption, dest: CityOption) => {
     setIsCalculatingRoute(true);
+    setMatchedRoute(null);
+    setRouteNotFound(false);
+    setCalculatedDistance(0);
     try {
-      const url = `https://router.project-osrm.org/route/v1/driving/${origin.lon},${origin.lat};${dest.lon},${dest.lat}?overview=false`;
-      const response = await fetch(url);
-      const data = await response.json();
+      // Tenta origem → destino
+      let { data } = await supabase
+        .from('routes')
+        .select('*')
+        .eq('origin', origin.name)
+        .eq('destination', dest.name)
+        .eq('status', 'active')
+        .maybeSingle();
 
-      if (data.code === 'Ok' && data.routes && data.routes.length > 0) {
-        const distanceInMeters = data.routes[0].distance;
-        const distanceInKm = distanceInMeters / 1000;
-        setCalculatedDistance(distanceInKm);
+      // Tenta sentido inverso (rota bidirecional)
+      if (!data) {
+        const { data: rev } = await supabase
+          .from('routes')
+          .select('*')
+          .eq('origin', dest.name)
+          .eq('destination', origin.name)
+          .eq('status', 'active')
+          .maybeSingle();
+        if (rev) data = { ...rev, origin: origin.name, destination: dest.name };
+      }
+
+      if (data) {
+        setMatchedRoute(data);
+        setCalculatedDistance(data.distance_km);
       } else {
-        throw new Error('Rota não encontrada');
+        setRouteNotFound(true);
       }
     } catch (e) {
-      console.error("Erro ao calcular rota rodoviária:", e);
-      setCalculatedDistance(100); // Fallback mock
+      console.error('Erro ao buscar rota:', e);
+      setRouteNotFound(true);
     } finally {
       setIsCalculatingRoute(false);
     }
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
-    if (selectedOrigin && selectedDest) {
-      fetchRoadDistance(selectedOrigin, selectedDest);
+    if (selectedOrigin && selectedDest && selectedOrigin.id !== selectedDest.id) {
+      lookupRoute(selectedOrigin, selectedDest);
+    } else {
+      setMatchedRoute(null);
+      setRouteNotFound(false);
+      setCalculatedDistance(0);
     }
-  }, [selectedOrigin, selectedDest, fetchRoadDistance]);
+  }, [selectedOrigin, selectedDest, lookupRoute]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -228,7 +208,15 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
 
   const nextStep = async () => {
     if (step === 2 && (!selectedOrigin || !selectedDest)) {
-      toast({ variant: "destructive", title: "Ops!", description: "Selecione a origem e o destino da lista." });
+      toast({ variant: "destructive", title: "Ops!", description: "Selecione a origem e o destino." });
+      return;
+    }
+    if (step === 2 && selectedOrigin && selectedDest && selectedOrigin.id === selectedDest.id) {
+      toast({ variant: "destructive", title: "Ops!", description: "Origem e destino não podem ser a mesma cidade." });
+      return;
+    }
+    if (step === 2 && routeNotFound) {
+      toast({ variant: "destructive", title: "Rota não disponível", description: "O admin ainda não cadastrou essa rota. Tente outra combinação." });
       return;
     }
     
@@ -247,19 +235,77 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
 
   const prevStep = () => setStep(step - 1);
 
-  const onSubmit = (values: FormValues) => {
-    toast({ title: "Quase lá!", description: "Processando seu pagamento..." });
-    setTimeout(() => onComplete(), 2000);
+  const generateCode = () => Math.random().toString(36).substring(2, 8).toUpperCase();
+
+  const onSubmit = async (values: FormValues) => {
+    if (!selectedOrigin || !selectedDest) {
+      toast({ variant: "destructive", title: "Ops!", description: "Selecione origem e destino." });
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Usuário não autenticado.');
+
+      const band = calculatedDistance <= 150 ? 'ate150'
+        : calculatedDistance <= 300 ? 'de151a300'
+        : 'aPartir301';
+      const base = pricingConfig && pricingConfig[values.size]
+        ? Number(pricingConfig[values.size][band])
+        : calculatePrice(values.size as SizeKey, calculatedDistance);
+      const freightWithFee = base * (1 + platformFeePercent / 100);
+      const insurance = Number(pricingConfig?.[values.size as SizeKey]?.insurance ?? 9.90);
+      const finalTotal = freightWithFee + (withInsurance ? insurance : 0);
+
+      const { error } = await supabase.from('packages').insert({
+        sender_id: user.id,
+        description: values.description,
+        size: values.size,
+        origin_address: selectedOrigin.name,
+        origin_city: selectedOrigin.name,
+        origin_state: selectedOrigin.state,
+        destination_address: selectedDest.name,
+        destination_city: selectedDest.name,
+        destination_state: selectedDest.state,
+        recipient_name: values.recipientName,
+        recipient_phone: values.recipientPhone,
+        recipient_cpf: values.recipientCpf,
+        price: finalTotal,
+        pickup_code: generateCode(),
+        delivery_code: generateCode(),
+        status: 'searching',
+      });
+
+      if (error) throw error;
+
+      toast({ title: "Envio criado! 🚀", description: "Estamos buscando o viajante ideal para você." });
+      onComplete();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro ao criar envio", description: err.message || 'Tente novamente.' });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const progress = (step / 5) * 100;
+  const selectedSize = form.watch("size") as SizeKey;
 
-  // Cálculos de preço
-  const baseFreight = calculatePrice(form.getValues("size"), calculatedDistance);
-  const platformFee = 4.50;
-  const totalFreight = baseFreight + platformFee;
-  const insurancePrice = 9.90; // Mock de seguro fixo para o protótipo
-  const finalTotal = totalFreight + (withInsurance ? insurancePrice : 0);
+  // Faixa de distância
+  const distanceBand = calculatedDistance <= 150 ? 'ate150'
+    : calculatedDistance <= 300 ? 'de151a300'
+    : 'aPartir301';
+  const distanceBandLabel = calculatedDistance <= 150 ? 'até 150 km'
+    : calculatedDistance <= 300 ? '151–300 km'
+    : 'acima de 300 km';
+
+  // Cálculos de preço reativos ao tamanho e distância
+  const baseFreight = pricingConfig && pricingConfig[selectedSize]
+    ? Number(pricingConfig[selectedSize][distanceBand])
+    : calculatePrice(selectedSize, calculatedDistance);
+  // Frete cobrado do remetente: base + % da plataforma embutida
+  const freightWithFee = baseFreight * (1 + platformFeePercent / 100);
+  const insurancePrice = Number(pricingConfig?.[selectedSize]?.insurance ?? 9.90);
+  const finalTotal = freightWithFee + (withInsurance ? insurancePrice : 0);
 
   return (
     <div className="space-y-6 pb-20 page-transition">
@@ -353,94 +399,89 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Pra onde vai? 📍</h2>
-                <p className="text-sm text-muted-foreground">O cálculo é feito pela distância real rodoviária.</p>
+                <p className="text-sm text-muted-foreground">Selecione as cidades atendidas pela VYA.</p>
               </div>
 
-              <div className="space-y-6">
-                {/* ORIGEM */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-4 bg-white p-2 rounded-[2rem] border shadow-sm relative z-20">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                      <MapPin className="h-5 w-5" />
-                    </div>
-                    <Input 
-                      placeholder="Origem (Cidade ou CEP)" 
-                      className="border-none bg-transparent focus-visible:ring-0 text-base"
-                      value={selectedOrigin ? selectedOrigin.simplifiedName : form.watch("origin")}
-                      onChange={(e) => {
-                        form.setValue("origin", e.target.value);
-                        setSelectedOrigin(null);
-                        if (e.target.value.length > 3) searchOsm(e.target.value, setOriginResults, setIsSearchingOrigin);
-                      }}
-                      readOnly={!!selectedOrigin}
-                    />
-                    {selectedOrigin ? (
-                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedOrigin(null); form.setValue("origin", ""); setOriginResults([]); setCalculatedDistance(0); }}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      isSearchingOrigin && <Loader2 className="h-4 w-4 animate-spin text-primary mr-3" />
-                    )}
-                  </div>
-                  {!selectedOrigin && originResults.length > 0 && (
-                    <div className="bg-white rounded-2xl border shadow-lg max-h-48 overflow-y-auto z-30 relative animate-in fade-in zoom-in-95">
-                      {originResults.map((loc, i) => (
-                        <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-primary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedOrigin(loc); setOriginResults([]); }}>
-                          {loc.simplifiedName}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+              <div className="space-y-4">
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Cidade de Origem</p>
+                  <CitySelect
+                    label="Origem"
+                    color="primary"
+                    value={selectedOrigin}
+                    onChange={(city) => {
+                      setSelectedOrigin(city);
+                      form.setValue("origin", city?.name ?? "");
+                      if (!city) setCalculatedDistance(0);
+                    }}
+                  />
                 </div>
 
-                {/* DESTINO */}
-                <div className="space-y-2">
-                  <div className="flex items-center gap-4 bg-white p-2 rounded-[2rem] border shadow-sm relative z-10">
-                    <div className="h-10 w-10 rounded-full bg-secondary/10 flex items-center justify-center text-secondary shrink-0">
-                      <MapPin className="h-5 w-5" />
-                    </div>
-                    <Input 
-                      placeholder="Destino (Cidade ou CEP)" 
-                      className="border-none bg-transparent focus-visible:ring-0 text-base"
-                      value={selectedDest ? selectedDest.simplifiedName : form.watch("destination")}
-                      onChange={(e) => {
-                        form.setValue("destination", e.target.value);
-                        setSelectedDest(null);
-                        if (e.target.value.length > 3) searchOsm(e.target.value, setDestResults, setIsSearchingDest);
-                      }}
-                      readOnly={!!selectedDest}
-                    />
-                    {selectedDest ? (
-                      <Button variant="ghost" size="icon" className="rounded-full" onClick={() => { setSelectedDest(null); form.setValue("destination", ""); setDestResults([]); setCalculatedDistance(0); }}>
-                        <X className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      isSearchingDest && <Loader2 className="h-4 w-4 animate-spin text-secondary mr-3" />
-                    )}
-                  </div>
-                  {!selectedDest && destResults.length > 0 && (
-                    <div className="bg-white rounded-2xl border shadow-lg max-h-48 overflow-y-auto z-30 relative animate-in fade-in zoom-in-95">
-                      {destResults.map((loc, i) => (
-                        <button key={i} type="button" className="w-full text-left p-4 text-sm hover:bg-secondary/5 border-b last:border-0 transition-colors" onClick={() => { setSelectedDest(loc); setDestResults([]); }}>
-                          {loc.simplifiedName}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                <div className="space-y-1.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Cidade de Destino</p>
+                  <CitySelect
+                    label="Destino"
+                    color="secondary"
+                    value={selectedDest}
+                    onChange={(city) => {
+                      setSelectedDest(city);
+                      form.setValue("destination", city?.name ?? "");
+                      if (!city) setCalculatedDistance(0);
+                    }}
+                  />
                 </div>
 
-                {isCalculatingRoute ? (
+                {isCalculatingRoute && (
                   <div className="p-4 bg-muted/20 rounded-[1.5rem] border border-dashed flex justify-center items-center gap-3 animate-pulse">
                     <Route className="h-4 w-4 text-primary animate-bounce" />
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Traçando rota rodoviária...</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Buscando rota cadastrada...</span>
                   </div>
-                ) : calculatedDistance > 0 && (
-                  <div className="p-4 bg-primary/5 rounded-[1.5rem] border border-primary/20 flex justify-between items-center animate-in slide-in-from-top-2">
-                    <div className="flex items-center gap-2">
-                      <Route className="h-4 w-4 text-primary" />
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância via Estrada</span>
+                )}
+
+                {!isCalculatingRoute && routeNotFound && selectedOrigin && selectedDest && (
+                  <div className="p-4 bg-destructive/5 rounded-[1.5rem] border border-destructive/20 flex items-start gap-3 animate-in slide-in-from-top-2">
+                    <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-bold text-destructive">Rota não disponível</p>
+                      <p className="text-[11px] text-muted-foreground">Ainda não temos essa rota cadastrada. Tente outra combinação de cidades.</p>
                     </div>
-                    <span className="text-sm font-bold text-primary">{Math.round(calculatedDistance)} km</span>
+                  </div>
+                )}
+
+                {!isCalculatingRoute && matchedRoute && (
+                  <div className="space-y-2 animate-in slide-in-from-top-2">
+                    <div className="p-4 bg-primary/5 rounded-[1.5rem] border border-primary/20">
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-2">
+                          <Route className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância</span>
+                        </div>
+                        <span className="text-sm font-bold text-primary">{Math.round(matchedRoute.distance_km)} km</span>
+                      </div>
+                      {matchedRoute.average_duration_min > 0 && (
+                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
+                          <div className="flex items-center gap-2">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tempo estimado</span>
+                          </div>
+                          <span className="text-sm font-bold text-primary">
+                            {Math.floor(matchedRoute.average_duration_min / 60)}h {matchedRoute.average_duration_min % 60}m
+                          </span>
+                        </div>
+                      )}
+                      {matchedRoute.waypoints && matchedRoute.waypoints.length > 0 && (
+                        <div className="mt-2 pt-2 border-t border-primary/10">
+                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Paradas no caminho</p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {(Array.isArray(matchedRoute.waypoints) ? matchedRoute.waypoints : []).map((city: string, i: number) => (
+                              <span key={i} className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">
+                                {city}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -449,10 +490,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <Button 
-                  type="button" 
-                  onClick={nextStep} 
-                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute} 
+                <Button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute || routeNotFound}
                   className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform"
                 >
                   Continuar
@@ -642,34 +683,47 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </Card>
 
               {/* RESUMO FINANCEIRO */}
-              <div className="bg-muted/20 rounded-[2.5rem] p-8 space-y-6 border border-muted relative overflow-hidden">
-                <div className="space-y-4 relative z-10">
-                  <div className="flex justify-between items-center text-sm">
-                    <span className="text-muted-foreground font-medium">Valor do frete</span>
-                    <span className="font-bold">R$ {totalFreight.toFixed(2)}</span>
+              <div className="bg-muted/20 rounded-[2.5rem] p-6 space-y-3 border border-muted relative overflow-hidden">
+                {pricingLoading ? (
+                  <div className="flex items-center justify-center gap-2 py-4">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-sm text-muted-foreground">Carregando tabela de preços...</span>
                   </div>
-                  
-                  {withInsurance && (
-                    <div className="flex justify-between items-center text-sm animate-in fade-in slide-in-from-top-1">
-                      <span className="text-muted-foreground font-medium">Seguro VYA Safe</span>
-                      <span className="font-bold">R$ {insurancePrice.toFixed(2)}</span>
+                ) : (
+                  <div className="space-y-3">
+                    {/* Frete */}
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <p className="text-sm font-medium text-muted-foreground">Valor do frete</p>
+                        <p className="text-[10px] font-bold text-muted-foreground/70 uppercase tracking-widest">
+                          Pacote {selectedSize} · {Math.round(calculatedDistance)} km ({distanceBandLabel})
+                        </p>
+                      </div>
+                      <span className="text-sm font-bold">R$ {freightWithFee.toFixed(2)}</span>
                     </div>
-                  )}
 
-                  <div className="pt-4 border-t flex justify-between items-end">
-                    <div>
-                      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total do pedido</p>
-                      <p className="text-3xl font-bold text-primary tracking-tight">R$ {finalTotal.toFixed(2)}</p>
-                    </div>
+                    {/* Linha seguro */}
                     {withInsurance && (
-                      <div className="text-right pb-1">
+                      <div className="flex justify-between items-center animate-in fade-in slide-in-from-top-1">
+                        <p className="text-sm font-medium text-muted-foreground">Seguro VYA Safe</p>
+                        <span className="text-sm font-bold">R$ {insurancePrice.toFixed(2)}</span>
+                      </div>
+                    )}
+
+                    {/* Total */}
+                    <div className="pt-3 border-t flex justify-between items-end">
+                      <div>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Total do pedido</p>
+                        <p className="text-3xl font-bold text-primary tracking-tight">R$ {finalTotal.toFixed(2)}</p>
+                      </div>
+                      {withInsurance && (
                         <div className="flex items-center gap-1 text-green-600 text-[10px] font-bold px-2 py-0.5 bg-green-50 rounded-full">
                           <ShieldCheck className="h-3 w-3" /> PROTEGIDO
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
 
               <div className="p-4 bg-primary/5 rounded-2xl border border-primary/10 flex items-center gap-3">
@@ -680,8 +734,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               <div className="space-y-3">
-                <Button type="submit" className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">
-                  Pagar com PIX <Sparkles className="h-5 w-5 fill-current" />
+                <Button type="submit" disabled={isSubmitting} className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">
+                  {isSubmitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Criando envio...</> : <>Pagar com PIX <Sparkles className="h-5 w-5 fill-current" /></>}
                 </Button>
                 <Button variant="ghost" type="button" className="w-full font-bold text-muted-foreground active:scale-95 transition-transform" onClick={prevStep}>
                   Voltar e ajustar

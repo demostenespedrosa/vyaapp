@@ -42,12 +42,12 @@ function MapEvents({ onAddPoint }: { onAddPoint: (latlng: L.LatLng) => void }) {
 }
 
 export default function SafePointsMap({ cityCenter, initialPoints, onPointsChange }: SafePointsMapProps) {
-  const [points, setPoints] = useState<SafePoint[]>(initialPoints);
+  const [points, setPoints] = useState<SafePoint[]>(initialPoints ?? []);
   const [editingPointId, setEditingPointId] = useState<string | null>(null);
   const [editName, setEditName] = useState("");
 
   useEffect(() => {
-    setPoints(initialPoints);
+    setPoints(initialPoints ?? []);
   }, [initialPoints]);
 
   const handleAddPoint = (latlng: L.LatLng) => {

@@ -1,6 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/hooks/use-toast";
 import { 
   Users, Route, Settings, ShieldCheck, Plus, Search, MoreVertical, 
   Edit2, Trash2, MapPin, CheckCircle2, AlertCircle, LayoutDashboard, 
@@ -24,6 +26,7 @@ import {
 import dynamic from "next/dynamic";
 import { PREDEFINED_ROUTES } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import type { SafePoint } from "./SafePointsMap";
 
 const SafePointsMap = dynamic(() => import("./SafePointsMap"), {
   ssr: false,
@@ -34,44 +37,162 @@ interface AdminDashboardProps {
   onLogout?: () => void;
 }
 
-// --- MOCK DATA ---
-const MOCK_CITIES = [
-  { id: "CT-001", name: "Recife", state: "PE", status: "active", hubs: 3, lat: -8.0476, lng: -34.8770, safePoints: [{ id: "sp1", lat: -8.05, lng: -34.88, name: "Marco Zero" }] },
-  { id: "CT-002", name: "Caruaru", state: "PE", status: "active", hubs: 2, lat: -8.2833, lng: -35.9761, safePoints: [] },
-  { id: "CT-003", name: "Campina Grande", state: "PB", status: "active", hubs: 1, lat: -7.2307, lng: -35.8811, safePoints: [] },
-  { id: "CT-004", name: "João Pessoa", state: "PB", status: "active", hubs: 2, lat: -7.1153, lng: -34.8610, safePoints: [] },
-  { id: "CT-005", name: "Maceió", state: "PB", status: "inactive", hubs: 0, lat: -9.6658, lng: -35.7353, safePoints: [] },
-];
-
-const MOCK_USERS = [
-  { name: "Lucas Silveira", email: "lucas@email.com", role: "Viajante", status: "Verified", orders: 42, date: "15 Mai, 2024", vehicle: "Carro" },
-  { name: "Mariana Costa", email: "mariana@email.com", role: "Remetente", status: "Verified", orders: 15, date: "22 Mai, 2024", vehicle: null },
-  { name: "Ricardo Silva", email: "ricardo@email.com", role: "Viajante", status: "Pending", orders: 2, date: "01 Jun, 2024", vehicle: "Moto" },
-  { name: "Ana Paula", email: "ana@email.com", role: "Remetente", status: "Verified", orders: 8, date: "10 Jun, 2024", vehicle: null },
-  { name: "Felipe Mendes", email: "felipe@email.com", role: "Viajante", status: "Verified", orders: 124, date: "12 Jan, 2024", vehicle: "Carro" },
-];
-
-const MOCK_TRANSACTIONS = [
-  { id: "TRX-9921", date: "Hoje, 14:30", user: "Lucas Silveira", type: "payout", amount: 450.00, status: "completed" },
-  { id: "TRX-9922", date: "Hoje, 11:15", user: "Mariana Costa", type: "payment", amount: 85.50, status: "completed" },
-  { id: "TRX-9923", date: "Ontem, 16:45", user: "Felipe Mendes", type: "payout", amount: 1200.00, status: "pending" },
-  { id: "TRX-9924", date: "Ontem, 09:20", user: "Ana Paula", type: "payment", amount: 120.00, status: "completed" },
-];
-
 export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [users, setUsers] = useState(MOCK_USERS);
+  const [users, setUsers] = useState<any[]>([]);
+  const [stats, setStats] = useState({ users: 0, packages: 0, trips: 0, revenue: 0 });
+  const [isLoading, setIsLoading] = useState(true);
   const [userFilter, setUserFilter] = useState('all');
   const [isVerifyDialogOpen, setIsVerifyDialogOpen] = useState(false);
-  const [userToVerify, setUserToVerify] = useState<typeof MOCK_USERS[0] | null>(null);
-  const [cities, setCities] = useState(MOCK_CITIES);
-  const [selectedCity, setSelectedCity] = useState<typeof MOCK_CITIES[0] | null>(null);
+  const [userToVerify, setUserToVerify] = useState<any | null>(null);
+  const [cities, setCities] = useState<any[]>([]);
+  const [selectedCity, setSelectedCity] = useState<any | null>(null);
   const [isMapDialogOpen, setIsMapDialogOpen] = useState(false);
   const [isAddCityDialogOpen, setIsAddCityDialogOpen] = useState(false);
   const [newCity, setNewCity] = useState({ name: '', state: '', status: 'active' });
+  const [pendingPoints, setPendingPoints] = useState<SafePoint[]>([]);
+  const [isSavingPoints, setIsSavingPoints] = useState(false);
 
-  const [routes, setRoutes] = useState(PREDEFINED_ROUTES);
+  const { toast } = useToast();
+
+  const [routes, setRoutes] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [newNotification, setNewNotification] = useState({ title: '', message: '', target: 'all' });
+  const [isSendingNotification, setIsSendingNotification] = useState(false);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      // Fetch users and their pending documents/vehicles
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select(`
+          *,
+          documents(id, status, document_type, document_url),
+          vehicles(id, status, type, brand, model, plate)
+        `)
+        .order('created_at', { ascending: false });
+
+      if (profiles) {
+        const mappedUsers = profiles.map(p => {
+          const hasPendingDocs = p.documents?.some((d: any) => d.status === 'pending');
+          const hasPendingVehicles = p.vehicles?.some((v: any) => v.status === 'pending');
+          const isPending = hasPendingDocs || hasPendingVehicles;
+          
+          return {
+            id: p.id,
+            name: p.full_name,
+            email: p.email || 'Sem email',
+            role: p.role === 'admin' ? 'Admin' : (p.vehicles?.length > 0 ? 'Viajante' : 'Remetente'),
+            status: isPending ? 'Pending' : 'Verified',
+            orders: 0, // We could fetch this from packages/trips
+            date: new Date(p.created_at).toLocaleDateString('pt-BR'),
+            vehicle: p.vehicles?.[0]?.type || null,
+            documents: p.documents,
+            vehicles: p.vehicles
+          };
+        });
+        setUsers(mappedUsers);
+      }
+
+      // Fetch stats
+      const { count: usersCount } = await supabase.from('profiles').select('*', { count: 'exact', head: true });
+      const { count: packagesCount } = await supabase.from('packages').select('*', { count: 'exact', head: true });
+      const { count: tripsCount } = await supabase.from('trips').select('*', { count: 'exact', head: true });
+      
+      // Fetch notifications
+      const { data: notifs } = await supabase.from('notifications').select('*').order('created_at', { ascending: false }).limit(10);
+      if (notifs) setNotifications(notifs);
+
+      // Fetch cities + safe_points
+      const { data: citiesData } = await supabase.from('cities').select('*').order('name', { ascending: true });
+      const { data: safePointsData } = await supabase.from('safe_points').select('*');
+      if (citiesData) {
+        const citiesWithPoints = citiesData.map(city => ({
+          ...city,
+          safePoints: (safePointsData ?? []).filter(sp => sp.city_id === city.id)
+        }));
+        setCities(citiesWithPoints);
+      }
+
+      // Fetch pricing config
+      const { data: pricingData } = await supabase.from('configs').select('value').eq('key', 'pricing_table').maybeSingle();
+      if (pricingData?.value) setPricingTable(pricingData.value);
+
+      // Fetch platform fee
+      const { data: feeData } = await supabase.from('configs').select('value').eq('key', 'platform_fee_percent').maybeSingle();
+      if (feeData?.value != null) setPlatformFeePercent(Number(feeData.value));
+
+      // Fetch routes
+      const { data: routesData } = await supabase.from('routes').select('*').order('created_at', { ascending: false });
+      if (routesData && routesData.length > 0) setRoutes(routesData);
+
+      // Fetch transactions
+      const { data: transactionsData } = await supabase.from('transactions').select('*, profiles(full_name)').order('created_at', { ascending: false }).limit(20);
+      if (transactionsData && transactionsData.length > 0) {
+        setTransactions(transactionsData.map(t => ({
+          id: t.id.substring(0, 8).toUpperCase(),
+          date: new Date(t.created_at).toLocaleString('pt-BR'),
+          user: t.profiles?.full_name || 'Usuário',
+          type: t.type,
+          amount: t.amount,
+          status: t.status
+        })));
+      }
+
+      setStats({
+        users: usersCount || 0,
+        packages: packagesCount || 0,
+        trips: tripsCount || 0,
+        revenue: 0 // Calculate from packages later
+      });
+    } catch (error) {
+      console.error("Erro ao buscar dados do dashboard:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSavePoints = async () => {
+    if (!selectedCity) return;
+    setIsSavingPoints(true);
+    try {
+      // Delete all existing points for this city
+      await supabase.from('safe_points').delete().eq('city_id', selectedCity.id);
+
+      // Insert all current points
+      if (pendingPoints.length > 0) {
+        const toInsert = pendingPoints.map(p => ({
+          city_id: selectedCity.id,
+          lat: p.lat,
+          lng: p.lng,
+          name: p.name,
+        }));
+        const { error } = await supabase.from('safe_points').insert(toInsert);
+        if (error) throw error;
+      }
+
+      // Update local cities state
+      const { data: freshPoints } = await supabase.from('safe_points').select('*').eq('city_id', selectedCity.id);
+      setCities(prev => prev.map(c =>
+        c.id === selectedCity.id ? { ...c, safePoints: freshPoints ?? [] } : c
+      ));
+      setIsMapDialogOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar pontos seguros:', err);
+    } finally {
+      setIsSavingPoints(false);
+    }
+  };
+
   const [isAddRouteDialogOpen, setIsAddRouteDialogOpen] = useState(false);
+  const [isAddingRoute, setIsAddingRoute] = useState(false);
   const [newRoute, setNewRoute] = useState({
     origin: '',
     destination: '',
@@ -81,57 +202,180 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   });
 
   const [pricingTable, setPricingTable] = useState({
-    P: { ate150: 35.00, de151a300: 55.00, aPartir301: 85.00 },
-    M: { ate150: 55.00, de151a300: 85.00, aPartir301: 130.00 },
-    G: { ate150: 85.00, de151a300: 130.00, aPartir301: 190.00 },
+    P: { ate150: 35.00, de151a300: 55.00, aPartir301: 85.00, insurance: 9.90 },
+    M: { ate150: 55.00, de151a300: 85.00, aPartir301: 130.00, insurance: 14.90 },
+    G: { ate150: 85.00, de151a300: 130.00, aPartir301: 190.00, insurance: 24.90 },
   });
+  const [platformFeePercent, setPlatformFeePercent] = useState<number>(20);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
-  const handleAddCity = () => {
+  const handleSaveSettings = async () => {
+    setIsSavingSettings(true);
+    try {
+      const { error: e1 } = await supabase
+        .from('configs')
+        .upsert({ key: 'pricing_table', value: pricingTable }, { onConflict: 'key' });
+      if (e1) throw e1;
+
+      const { error: e2 } = await supabase
+        .from('configs')
+        .upsert({ key: 'platform_fee_percent', value: platformFeePercent }, { onConflict: 'key' });
+      if (e2) throw e2;
+
+      toast({ title: 'Configurações salvas!', description: 'Tabela de preços e taxas atualizadas com sucesso.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err?.message ?? 'Tente novamente.' });
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  const handleAddCity = async () => {
     if (!newCity.name || !newCity.state) return;
-    const city = {
-      id: `CT-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-      name: newCity.name,
-      state: newCity.state,
-      status: newCity.status,
-      hubs: 0,
-      lat: -14.2350, // Default Brazil center
-      lng: -51.9253,
-      safePoints: []
-    };
-    setCities([city, ...cities]);
-    setIsAddCityDialogOpen(false);
-    setNewCity({ name: '', state: '', status: 'active' });
+    try {
+      const { data, error } = await supabase
+        .from('cities')
+        .insert([{
+          name: newCity.name,
+          state: newCity.state,
+          status: newCity.status,
+          hubs: 0,
+          lat: -14.2350,
+          lng: -51.9253
+        }])
+        .select();
+
+      if (error) throw error;
+      if (data) {
+        setCities([data[0], ...cities]);
+      }
+      setIsAddCityDialogOpen(false);
+      setNewCity({ name: '', state: '', status: 'active' });
+    } catch (error) {
+      console.error("Erro ao adicionar cidade:", error);
+    }
   };
 
-  const handleAddRoute = () => {
-    if (!newRoute.origin || !newRoute.destination || !newRoute.distanceKm || !newRoute.averageDurationMin) return;
-    
-    const route = {
-      id: `RT-${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`,
-      origin: newRoute.origin,
-      destination: newRoute.destination,
-      distanceKm: Number(newRoute.distanceKm),
-      averageDurationMin: Number(newRoute.averageDurationMin),
-      stops: newRoute.waypoints
-    };
-    
-    setRoutes([route, ...routes]);
-    setIsAddRouteDialogOpen(false);
-    setNewRoute({ origin: '', destination: '', distanceKm: '', averageDurationMin: '', waypoints: [] });
+  const handleAddRoute = async () => {
+    if (!newRoute.origin || !newRoute.destination || !newRoute.distanceKm || !newRoute.averageDurationMin) {
+      toast({ variant: "destructive", title: "Campos obrigatórios", description: "Preencha origem, destino, distância e duração." });
+      return;
+    }
+    if (newRoute.origin === newRoute.destination) {
+      toast({ variant: "destructive", title: "Rota inválida", description: "Origem e destino não podem ser iguais." });
+      return;
+    }
+    setIsAddingRoute(true);
+    try {
+      const { data, error } = await supabase
+        .from('routes')
+        .insert([{
+          origin: newRoute.origin,
+          destination: newRoute.destination,
+          distance_km: Number(newRoute.distanceKm),
+          average_duration_min: Number(newRoute.averageDurationMin),
+          waypoints: newRoute.waypoints,
+          status: 'active'
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setRoutes(prev => [data, ...prev]);
+      setIsAddRouteDialogOpen(false);
+      setNewRoute({ origin: '', destination: '', distanceKm: '', averageDurationMin: '', waypoints: [] });
+      toast({ title: "Rota criada!", description: `${newRoute.origin} → ${newRoute.destination} cadastrada com sucesso.` });
+    } catch (error: any) {
+      console.error("Erro ao adicionar rota:", error);
+      toast({ variant: "destructive", title: "Erro ao criar rota", description: error?.message ?? "Verifique os dados e tente novamente." });
+    } finally {
+      setIsAddingRoute(false);
+    }
   };
 
-  const handleApproveUser = (email: string) => {
-    setUsers(users.map(u => u.email === email ? { ...u, status: 'Verified' } : u));
-    setIsVerifyDialogOpen(false);
+  const handleApproveUser = async (userId: string) => {
+    try {
+      // Aprovar todos os documentos pendentes do usuário
+      await supabase
+        .from('documents')
+        .update({ status: 'approved' })
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      // Aprovar todos os veículos pendentes do usuário
+      await supabase
+        .from('vehicles')
+        .update({ status: 'approved' })
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      // Atualizar a lista local
+      setUsers(users.map(u => u.id === userId ? { ...u, status: 'Verified' } : u));
+      setIsVerifyDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao aprovar usuário:", error);
+    }
   };
 
-  const handleRejectUser = (email: string) => {
-    // In a real app, this might set status to 'Rejected' or ask for new docs
-    setUsers(users.map(u => u.email === email ? { ...u, status: 'Rejected' } : u));
-    setIsVerifyDialogOpen(false);
+  const handleRejectUser = async (userId: string) => {
+    try {
+      // Rejeitar todos os documentos pendentes do usuário
+      await supabase
+        .from('documents')
+        .update({ status: 'rejected' })
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      // Rejeitar todos os veículos pendentes do usuário
+      await supabase
+        .from('vehicles')
+        .update({ status: 'rejected' })
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      // Atualizar a lista local
+      setUsers(users.map(u => u.id === userId ? { ...u, status: 'Rejected' } : u));
+      setIsVerifyDialogOpen(false);
+    } catch (error) {
+      console.error("Erro ao rejeitar usuário:", error);
+    }
   };
 
-  const handleOpenVerifyDialog = (user: typeof MOCK_USERS[0]) => {
+  const handleSendNotification = async () => {
+    if (!newNotification.title || !newNotification.message) return;
+    setIsSendingNotification(true);
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .insert([
+          {
+            user_id: null, // null means broadcast to all or specific role
+            title: newNotification.title,
+            message: newNotification.message,
+            type: 'system',
+            read: false,
+            // We can use a metadata field to store the target audience if needed, 
+            // but for now we just insert it. In a real app, you'd have a backend 
+            // function to fan out notifications to specific users.
+          }
+        ])
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setNotifications([data[0], ...notifications]);
+      }
+      setNewNotification({ title: '', message: '', target: 'all' });
+    } catch (error) {
+      console.error("Erro ao enviar notificação:", error);
+    } finally {
+      setIsSendingNotification(false);
+    }
+  };
+
+  const handleOpenVerifyDialog = (user: any) => {
     setUserToVerify(user);
     setIsVerifyDialogOpen(true);
   };
@@ -149,11 +393,11 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
   // --- RENDER FUNCTIONS ---
 
   const renderDashboard = () => {
-    const stats = [
-      { label: 'Envios Hoje', value: '142', change: '+12%', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
-      { label: 'Usuários Ativos', value: '1,245', change: '+5%', icon: Users, color: 'text-primary', bg: 'bg-primary/5' },
-      { label: 'Receita (Bruta)', value: 'R$ 12.450', change: '+18%', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
-      { label: 'Viagens Ativas', value: '28', change: '-2%', icon: Route, color: 'text-orange-600', bg: 'bg-orange-50' },
+    const dashboardStats = [
+      { label: 'Envios Hoje', value: stats.packages.toString(), change: '+12%', icon: Package, color: 'text-blue-600', bg: 'bg-blue-50' },
+      { label: 'Usuários Ativos', value: stats.users.toString(), change: '+5%', icon: Users, color: 'text-primary', bg: 'bg-primary/5' },
+      { label: 'Receita (Bruta)', value: `R$ ${stats.revenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`, change: '+18%', icon: TrendingUp, color: 'text-green-600', bg: 'bg-green-50' },
+      { label: 'Viagens Ativas', value: stats.trips.toString(), change: '-2%', icon: Route, color: 'text-orange-600', bg: 'bg-orange-50' },
     ];
 
     return (
@@ -172,7 +416,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
         {/* STATS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {stats.map((stat, i) => (
+          {dashboardStats.map((stat, i) => (
             <Card key={i} className="rounded-[2rem] border-none shadow-sm bg-white hover:shadow-md transition-all duration-300 group cursor-default">
               <CardContent className="p-6 flex flex-col gap-6">
                 <div className="flex justify-between items-start">
@@ -217,10 +461,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {PREDEFINED_ROUTES.slice(0, 4).map((route) => (
+                  {routes.slice(0, 4).map((route) => (
                     <TableRow key={route.id} className="hover:bg-slate-50/80 transition-colors border-slate-100 group">
                       <TableCell className="pl-8 py-5">
-                        <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{route.id}</span>
+                        <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-md">{route.id.substring(0, 8).toUpperCase()}</span>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-2">
@@ -240,6 +484,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {routes.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={3} className="text-center py-8 text-slate-500 font-medium">
+                        Nenhuma rota ativa no momento.
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -383,7 +634,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             {cities.map((city) => (
               <TableRow key={city.id} className="hover:bg-slate-50/80 transition-colors border-slate-100">
                 <TableCell className="pl-8 py-6">
-                  <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md">{city.id}</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md">{city.id.substring(0, 8).toUpperCase()}</span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -420,6 +671,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       className="h-10 w-10 rounded-xl bg-slate-50 hover:bg-blue-50 text-slate-500 hover:text-blue-600 transition-all"
                       onClick={() => {
                         setSelectedCity(city);
+                        setPendingPoints(city.safePoints ?? []);
                         setIsMapDialogOpen(true);
                       }}
                       title="Gerenciar Pontos Seguros"
@@ -454,10 +706,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <SafePointsMap 
                 cityCenter={[selectedCity.lat, selectedCity.lng]} 
                 initialPoints={selectedCity.safePoints}
-                onPointsChange={(points) => {
-                  // In a real app, this would call an API to save the points
-                  console.log("Pontos atualizados:", points);
-                }}
+                onPointsChange={(points) => setPendingPoints(points)}
               />
             )}
           </div>
@@ -465,15 +714,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             <Button 
               variant="outline" 
               onClick={() => setIsMapDialogOpen(false)}
+              disabled={isSavingPoints}
               className="h-12 rounded-xl font-bold"
             >
-              Fechar
+              Cancelar
             </Button>
             <Button 
-              onClick={() => setIsMapDialogOpen(false)}
+              onClick={handleSavePoints}
+              disabled={isSavingPoints}
               className="h-12 rounded-xl font-black bg-primary hover:bg-primary/90 px-8"
             >
-              Salvar Pontos
+              {isSavingPoints ? (
+                <><span className="animate-spin mr-2">⏳</span> Salvando...</>
+              ) : (
+                'Salvar Pontos'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -570,7 +825,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             {routes.map((route) => (
               <TableRow key={route.id} className="hover:bg-slate-50/80 transition-colors border-slate-100">
                 <TableCell className="pl-8 py-6">
-                  <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md">{route.id}</span>
+                  <span className="font-mono text-[11px] font-bold text-slate-500 bg-slate-100 px-2.5 py-1.5 rounded-md">{route.id.substring(0, 8).toUpperCase()}</span>
                 </TableCell>
                 <TableCell>
                   <div className="flex items-center gap-3">
@@ -586,10 +841,10 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <TableCell>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                      <MapPin className="h-4 w-4 text-slate-400" /> {route.distanceKm} km
+                      <MapPin className="h-4 w-4 text-slate-400" /> {route.distance_km || route.distanceKm} km
                     </div>
                     <div className="flex items-center gap-2 text-xs font-medium text-slate-500">
-                      <Clock className="h-3.5 w-3.5 text-slate-400" /> {Math.floor(route.averageDurationMin / 60)}h {route.averageDurationMin % 60}m
+                      <Clock className="h-3.5 w-3.5 text-slate-400" /> {Math.floor((route.average_duration_min || route.averageDurationMin) / 60)}h {(route.average_duration_min || route.averageDurationMin) % 60}m
                     </div>
                   </div>
                 </TableCell>
@@ -711,9 +966,14 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </Button>
             <Button 
               onClick={handleAddRoute} 
+              disabled={isAddingRoute}
               className="h-12 rounded-xl font-black bg-primary hover:bg-primary/90 px-8"
             >
-              Cadastrar Rota
+              {isAddingRoute ? (
+                <><span className="animate-spin mr-2">⏳</span> Salvando...</>
+              ) : (
+                'Cadastrar Rota'
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1019,7 +1279,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {MOCK_TRANSACTIONS.map((trx) => (
+            {transactions.length > 0 ? transactions.map((trx) => (
               <TableRow key={trx.id} className="hover:bg-slate-50/80 transition-colors border-slate-100">
                 <TableCell className="pl-8 py-5">
                   <p className="font-mono text-[11px] font-bold text-slate-500">{trx.id}</p>
@@ -1051,7 +1311,13 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                   )}
                 </TableCell>
               </TableRow>
-            ))}
+            )) : (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center py-8 text-slate-500 font-medium">
+                  Nenhuma transação encontrada.
+                </TableCell>
+              </TableRow>
+            )}
           </TableBody>
         </Table>
       </Card>
@@ -1085,15 +1351,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
               <label className="text-sm font-bold text-slate-700">Público-Alvo</label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                  <input type="radio" name="target" defaultChecked className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
+                  <input type="radio" name="target" value="all" checked={newNotification.target === 'all'} onChange={(e) => setNewNotification({...newNotification, target: e.target.value})} className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
                   <span className="font-bold text-slate-800 text-sm">Todos os Usuários</span>
                 </label>
                 <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                  <input type="radio" name="target" className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
+                  <input type="radio" name="target" value="travelers" checked={newNotification.target === 'travelers'} onChange={(e) => setNewNotification({...newNotification, target: e.target.value})} className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
                   <span className="font-bold text-slate-800 text-sm">Apenas Viajantes</span>
                 </label>
                 <label className="flex items-center gap-3 p-4 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 cursor-pointer transition-colors has-[:checked]:border-primary has-[:checked]:bg-primary/5">
-                  <input type="radio" name="target" className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
+                  <input type="radio" name="target" value="senders" checked={newNotification.target === 'senders'} onChange={(e) => setNewNotification({...newNotification, target: e.target.value})} className="h-4 w-4 text-primary focus:ring-primary border-slate-300" />
                   <span className="font-bold text-slate-800 text-sm">Apenas Remetentes</span>
                 </label>
               </div>
@@ -1101,19 +1367,30 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
 
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700">Título da Notificação</label>
-              <Input placeholder="Ex: Nova promoção de frete!" className="h-14 rounded-xl bg-slate-50 border-slate-200 font-medium" />
+              <Input 
+                placeholder="Ex: Nova promoção de frete!" 
+                value={newNotification.title}
+                onChange={(e) => setNewNotification({...newNotification, title: e.target.value})}
+                className="h-14 rounded-xl bg-slate-50 border-slate-200 font-medium" 
+              />
             </div>
 
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700">Mensagem</label>
               <textarea 
                 placeholder="Digite o conteúdo da notificação push..." 
+                value={newNotification.message}
+                onChange={(e) => setNewNotification({...newNotification, message: e.target.value})}
                 className="w-full min-h-[120px] p-4 rounded-xl bg-slate-50 border border-slate-200 font-medium text-sm resize-none focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary/50 transition-all"
               />
             </div>
 
-            <Button className="w-full h-14 rounded-xl font-black bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 text-base gap-2">
-              <Send className="h-5 w-5" /> Enviar Notificação Agora
+            <Button 
+              onClick={handleSendNotification}
+              disabled={isSendingNotification || !newNotification.title || !newNotification.message}
+              className="w-full h-14 rounded-xl font-black bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 text-base gap-2"
+            >
+              {isSendingNotification ? 'Enviando...' : <><Send className="h-5 w-5" /> Enviar Notificação Agora</>}
             </Button>
           </CardContent>
         </Card>
@@ -1125,21 +1402,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           </CardHeader>
           <CardContent className="p-0 flex-1 overflow-y-auto">
             <div className="divide-y divide-slate-100">
-              {[
-                { title: "Atualização nos Termos", target: "Todos", date: "Hoje, 10:00" },
-                { title: "Dica para Viajantes", target: "Viajantes", date: "Ontem, 15:30" },
-                { title: "Cupom de Desconto", target: "Remetentes", date: "20 Fev, 09:15" },
-              ].map((notif, i) => (
+              {notifications.length > 0 ? notifications.map((notif, i) => (
                 <div key={i} className="p-6 hover:bg-slate-50 transition-colors">
                   <div className="flex justify-between items-start mb-2">
                     <h4 className="font-bold text-slate-800 text-sm">{notif.title}</h4>
                     <Badge variant="secondary" className="bg-slate-100 text-slate-500 border-none text-[10px] font-black uppercase">
-                      {notif.target}
+                      {notif.type || 'Sistema'}
                     </Badge>
                   </div>
-                  <p className="text-xs font-bold text-slate-400">{notif.date}</p>
+                  <p className="text-xs font-bold text-slate-400">{new Date(notif.created_at).toLocaleString('pt-BR')}</p>
                 </div>
-              ))}
+              )) : (
+                <div className="p-6 text-center text-slate-500 text-sm font-medium">
+                  Nenhuma notificação enviada ainda.
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
@@ -1154,8 +1431,12 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <h2 className="text-3xl font-black tracking-tighter text-slate-800">Configurações do Sistema</h2>
           <p className="text-slate-500 text-sm font-medium">Ajuste regras de negócio, taxas e parâmetros globais da plataforma.</p>
         </div>
-        <Button className="h-14 rounded-[1.5rem] font-black bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 px-8 text-base">
-          Salvar Alterações
+        <Button
+          onClick={handleSaveSettings}
+          disabled={isSavingSettings}
+          className="h-14 rounded-[1.5rem] font-black bg-primary hover:bg-primary/90 shadow-lg shadow-primary/20 px-8 text-base"
+        >
+          {isSavingSettings ? <><span className="animate-spin mr-2">⏳</span> Salvando...</> : 'Salvar Alterações'}
         </Button>
       </div>
 
@@ -1178,7 +1459,8 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 <TableHead className="pl-8 py-6 font-bold text-xs uppercase tracking-widest text-slate-400">Tamanho do Pacote</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-widest text-slate-400">Até 150 km</TableHead>
                 <TableHead className="font-bold text-xs uppercase tracking-widest text-slate-400">De 151 a 300 km</TableHead>
-                <TableHead className="pr-8 font-bold text-xs uppercase tracking-widest text-slate-400">A partir de 301 km</TableHead>
+                <TableHead className="font-bold text-xs uppercase tracking-widest text-slate-400">A partir de 301 km</TableHead>
+                <TableHead className="pr-8 font-bold text-xs uppercase tracking-widest text-slate-400">Seguro (R$)</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -1239,6 +1521,21 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                       />
                     </div>
                   </TableCell>
+                  <TableCell className="pr-8">
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">R$</span>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        value={pricingTable[size].insurance}
+                        onChange={(e) => setPricingTable(prev => ({
+                          ...prev,
+                          [size]: { ...prev[size], insurance: Number(e.target.value) }
+                        }))}
+                        className="h-12 pl-10 rounded-xl bg-green-50 border-green-200 font-black text-green-800 w-32" 
+                      />
+                    </div>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
@@ -1262,8 +1559,15 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
           <CardContent className="p-8 space-y-6">
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700">Taxa da Plataforma (%)</label>
-              <Input defaultValue="20" className="h-14 rounded-[1.2rem] bg-slate-50 border-slate-200 font-black text-lg" />
-              <p className="text-xs text-slate-500 font-medium">Porcentagem retida pela VYA em cada envio.</p>
+              <Input
+                type="number"
+                min={0}
+                max={100}
+                value={platformFeePercent}
+                onChange={(e) => setPlatformFeePercent(Number(e.target.value))}
+                className="h-14 rounded-[1.2rem] bg-slate-50 border-slate-200 font-black text-lg"
+              />
+              <p className="text-xs text-slate-500 font-medium">Porcentagem adicionada ao frete base cobrada do remetente.</p>
             </div>
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700">Valor Mínimo de Saque (R$)</label>

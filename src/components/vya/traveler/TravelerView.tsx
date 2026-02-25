@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
   Navigation, 
   MapPin, 
@@ -28,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { TripForm } from "./TripForm";
 import { cn } from "@/lib/utils";
 
@@ -48,45 +49,71 @@ interface TravelerTrip {
   }>;
 }
 
-const MOCK_TRIPS: TravelerTrip[] = [
-  {
-    id: 'T-9921',
-    origin: 'Caruaru, PE',
-    destination: 'Recife, PE',
-    date: 'Hoje',
-    time: '14:30',
-    status: 'active',
-    packages: [
-      { id: 'VY-982', item: 'Smartphone Samsung', sender: 'Lucas S.', status: 'transit', earnings: 18.50 },
-      { id: 'VY-441', item: 'Caixa de Doces', sender: 'Maria F.', status: 'waiting_pickup', earnings: 32.20 }
-    ]
-  },
-  {
-    id: 'T-8812',
-    origin: 'Recife, PE',
-    destination: 'Caruaru, PE',
-    date: 'Amanhã',
-    time: '08:00',
-    status: 'scheduled',
-    packages: []
-  },
-  {
-    id: 'T-1029',
-    origin: 'São Paulo, SP',
-    destination: 'Campinas, SP',
-    date: '15 Mai',
-    time: '10:00',
-    status: 'completed',
-    packages: [
-      { id: 'VY-102', item: 'Notebook Dell', sender: 'Ricardo G.', status: 'delivered', earnings: 45.00 }
-    ]
-  }
-];
-
 export function TravelerView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [selectedTrip, setSelectedTrip] = useState<TravelerTrip | null>(null);
+  const [trips, setTrips] = useState<TravelerTrip[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTrips();
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+  }, [selectedTrip, isCreating]);
+
+  const fetchTrips = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('trips')
+        .select(`
+          *,
+          packages (
+            id,
+            description,
+            status,
+            price,
+            profiles!packages_sender_id_fkey (full_name)
+          )
+        `)
+        .eq('traveler_id', user.id)
+        .order('departure_date', { ascending: true });
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedTrips: TravelerTrip[] = data.map(trip => ({
+          id: trip.id.substring(0, 8).toUpperCase(),
+          origin: `${trip.origin_city}, ${trip.origin_state}`,
+          destination: `${trip.destination_city}, ${trip.destination_state}`,
+          date: new Date(trip.departure_date).toLocaleDateString('pt-BR'),
+          time: trip.departure_time.substring(0, 5),
+          status: trip.status as 'scheduled' | 'active' | 'completed',
+          packages: trip.packages?.map((pkg: any) => ({
+            id: pkg.id.substring(0, 8).toUpperCase(),
+            item: pkg.description,
+            sender: pkg.profiles?.full_name || 'Remetente',
+            status: pkg.status,
+            earnings: pkg.price * 0.8 // Assuming 20% platform fee
+          })) || []
+        }));
+        setTrips(mappedTrips);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar viagens:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   if (selectedTrip) {
     return (
@@ -96,11 +123,11 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
     );
   }
 
-  const filteredTrips = MOCK_TRIPS.filter(t => 
+  const filteredTrips = trips.filter(t => 
     activeTab === 'active' ? t.status !== 'completed' : t.status === 'completed'
   );
 
-  const activeTrips = MOCK_TRIPS.filter(t => t.status !== 'completed');
+  const activeTrips = trips.filter(t => t.status !== 'completed');
   const totalEarnings = activeTrips.reduce((acc, trip) => acc + trip.packages.reduce((sum, p) => sum + p.earnings, 0), 0);
   const totalPackages = activeTrips.reduce((acc, trip) => acc + trip.packages.length, 0);
 
@@ -110,9 +137,10 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] overflow-hidden flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-2 border-b">
             <SheetTitle className="text-xl font-black tracking-tighter text-left">Planejar Viagem</SheetTitle>
+            <SheetDescription className="sr-only">Cadastre os detalhes da sua viagem</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            <TripForm onComplete={() => setIsCreating(false)} />
+            <TripForm onComplete={() => { setIsCreating(false); fetchTrips(); }} />
           </div>
         </SheetContent>
       </Sheet>

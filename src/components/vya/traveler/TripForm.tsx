@@ -34,10 +34,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { PREDEFINED_ROUTES, PredefinedRoute } from "@/lib/constants";
+import { supabase } from "@/lib/supabase";
 
 const tripSchema = z.object({
   routeId: z.string().min(1, "Escolha uma rota oficial"),
@@ -55,6 +56,7 @@ type TripFormValues = z.infer<typeof tripSchema>;
 export function TripForm({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   // States para Busca de Cidades Oficiais
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
@@ -501,13 +503,54 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               <div className="space-y-3">
                 <Button 
                   type="button" 
-                  onClick={() => {
-                    toast({ title: "Viagem Publicada! 🚀", description: "Sua carona logística oficial está no ar." });
-                    onComplete();
+                  disabled={isSubmitting}
+                  onClick={async () => {
+                    if (!selectedRoute) return;
+                    setIsSubmitting(true);
+                    try {
+                      const { data: { user } } = await supabase.auth.getUser();
+                      if (!user) throw new Error('Usuário não autenticado.');
+
+                      const [originCity, originState] = selectedRoute.origin.split(',').map(s => s.trim());
+                      const [destCity, destState] = selectedRoute.destination.split(',').map(s => s.trim());
+                      const values = form.getValues();
+
+                      const tripData = {
+                        traveler_id: user.id,
+                        origin_city: originCity,
+                        origin_state: originState,
+                        destination_city: destCity,
+                        destination_state: destState,
+                        departure_date: values.departureDate,
+                        departure_time: values.departureTime,
+                        available_capacity: 'G' as const,
+                        status: 'scheduled',
+                      };
+
+                      const { error } = await supabase.from('trips').insert(tripData);
+                      if (error) throw error;
+
+                      if (values.roundTrip) {
+                        await supabase.from('trips').insert({
+                          ...tripData,
+                          origin_city: destCity,
+                          origin_state: destState,
+                          destination_city: originCity,
+                          destination_state: originState,
+                        });
+                      }
+
+                      toast({ title: "Viagem Publicada! 🚀", description: "Sua carona logística oficial está no ar." });
+                      onComplete();
+                    } catch (err: any) {
+                      toast({ variant: "destructive", title: "Erro ao publicar viagem", description: err.message || 'Tente novamente.' });
+                    } finally {
+                      setIsSubmitting(false);
+                    }
                   }}
                   className="w-full h-16 rounded-[1.5rem] bg-secondary text-lg font-bold gap-3 shadow-xl shadow-secondary/20 transition-transform active:scale-95"
                 >
-                  Oferecer Carona <Check className="h-6 w-6" />
+                  {isSubmitting ? <><Loader2 className="h-6 w-6 animate-spin" /> Publicando...</> : <>Oferecer Carona <Check className="h-6 w-6" /></>}
                 </Button>
                 <Button variant="ghost" type="button" onClick={prevStep} className="w-full font-bold text-muted-foreground">Ajustar Detalhes</Button>
               </div>
@@ -522,6 +565,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b">
             <SheetTitle className="text-xl font-black tracking-tighter text-left">De onde você sai?</SheetTitle>
+            <SheetDescription className="sr-only">Selecione a cidade de origem da viagem</SheetDescription>
             <div className="relative mt-4">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input 
@@ -571,6 +615,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-4 border-b">
             <SheetTitle className="text-xl font-black tracking-tighter text-left">Para onde você vai?</SheetTitle>
+            <SheetDescription className="sr-only">Selecione a cidade de destino da viagem</SheetDescription>
             <div className="relative mt-4">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
               <Input 

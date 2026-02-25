@@ -1,7 +1,8 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
   Package, 
   Plus, 
@@ -36,7 +37,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PackageForm } from "./PackageForm";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -69,93 +70,91 @@ interface Shipment {
   };
 }
 
-const MOCK_SHIPMENTS: Shipment[] = [
-  { 
-    id: 'VY-9821', 
-    status: 'transit', 
-    statusLabel: 'A caminho', 
-    description: 'Tênis Nike e Camisetas',
-    from: 'São Paulo, SP', 
-    to: 'Campinas, SP', 
-    date: 'Hoje, 14:20', 
-    size: 'P', 
-    progress: 65,
-    price: 25.00,
-    pickupCode: '442-981',
-    deliveryCode: '110-334',
-    recipient: { name: 'Mariana Costa', phone: '(11) 98877-6655', cpf: '***.443.221-**' },
-    traveler: { name: 'Ricardo Silva', rating: 4.9, photo: 'https://picsum.photos/seed/traveler1/100/100' }
-  },
-  { 
-    id: 'VY-4412', 
-    status: 'searching', 
-    statusLabel: 'Buscando viajante', 
-    description: 'Livros de Design',
-    from: 'Curitiba, PR', 
-    to: 'Joinville, SC', 
-    date: 'Hoje, 10:05', 
-    size: 'M', 
-    progress: 15,
-    price: 45.00,
-    pickupCode: '882-114',
-    deliveryCode: '993-002',
-    recipient: { name: 'João Pedro', phone: '(41) 99988-7766', cpf: '***.112.334-**' }
-  },
-  { 
-    id: 'VY-7723', 
-    status: 'waiting_pickup', 
-    statusLabel: 'Aguardando coleta', 
-    description: 'Documentos urgentes',
-    from: 'Rio de Janeiro, RJ', 
-    to: 'Niterói, RJ', 
-    date: 'Hoje, 16:00', 
-    size: 'P', 
-    progress: 40,
-    price: 15.00,
-    pickupCode: '109-223',
-    deliveryCode: '554-881',
-    recipient: { name: 'Cláudia Souza', phone: '(21) 97766-5544', cpf: '***.887.665-**' },
-    traveler: { name: 'Beatriz Lima', rating: 4.8, photo: 'https://picsum.photos/seed/traveler2/100/100' }
-  },
-  { 
-    id: 'VY-3391', 
-    status: 'waiting_delivery', 
-    statusLabel: 'Aguardando retirada', 
-    description: 'Café Especial',
-    from: 'Belo Horizonte, MG', 
-    to: 'Vitória, ES', 
-    date: 'Ontem, 09:30', 
-    size: 'M', 
-    progress: 90,
-    price: 55.00,
-    pickupCode: '332-119',
-    deliveryCode: '882-441',
-    recipient: { name: 'Felipe Mendes', phone: '(27) 96655-4433', cpf: '***.554.332-**' },
-    traveler: { name: 'Carlos Santos', rating: 5.0, photo: 'https://picsum.photos/seed/traveler3/100/100' }
-  },
-  { 
-    id: 'VY-1029', 
-    status: 'delivered', 
-    statusLabel: 'Concluído', 
-    description: 'Notebook Dell',
-    from: 'Florianópolis, SC', 
-    to: 'Porto Alegre, RS', 
-    date: '2 dias atrás', 
-    size: 'G', 
-    progress: 100,
-    price: 120.00,
-    pickupCode: '112-993',
-    deliveryCode: '445-102',
-    recipient: { name: 'Ana Beatriz', phone: '(51) 95544-3322', cpf: '***.223.445-**' },
-    traveler: { name: 'Marcos Oliver', rating: 4.7, photo: 'https://picsum.photos/seed/traveler4/100/100' }
-  }
-];
-
 export function SenderView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchQuery, setSearchQuery] = useState("");
+  const [shipments, setShipments] = useState<Shipment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchShipments();
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+  }, []);
+
+  useEffect(() => {
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+  }, [selectedShipment, isCreating]);
+
+  const fetchShipments = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('packages')
+        .select(`
+          *,
+          trips (
+            traveler_id,
+            profiles (full_name, avatar_url, rating)
+          )
+        `)
+        .eq('sender_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (data) {
+        const mappedShipments: Shipment[] = data.map(pkg => {
+          const statusMap: Record<string, { label: string, progress: number }> = {
+            'searching': { label: 'Buscando viajante', progress: 15 },
+            'waiting_pickup': { label: 'Aguardando coleta', progress: 40 },
+            'transit': { label: 'A caminho', progress: 65 },
+            'waiting_delivery': { label: 'Aguardando retirada', progress: 90 },
+            'delivered': { label: 'Concluído', progress: 100 },
+            'canceled': { label: 'Cancelado', progress: 0 }
+          };
+
+          const travelerProfile = pkg.trips?.profiles;
+
+          return {
+            id: pkg.id.substring(0, 8).toUpperCase(),
+            status: pkg.status as ShipmentStatus,
+            statusLabel: statusMap[pkg.status]?.label || pkg.status,
+            description: pkg.description,
+            from: `${pkg.origin_city}, ${pkg.origin_state}`,
+            to: `${pkg.destination_city}, ${pkg.destination_state}`,
+            date: new Date(pkg.created_at).toLocaleString('pt-BR'),
+            size: pkg.size as 'P' | 'M' | 'G',
+            progress: statusMap[pkg.status]?.progress || 0,
+            price: pkg.price,
+            pickupCode: pkg.pickup_code,
+            deliveryCode: pkg.delivery_code,
+            recipient: {
+              name: pkg.recipient_name,
+              phone: pkg.recipient_phone,
+              cpf: pkg.recipient_cpf
+            },
+            traveler: travelerProfile ? {
+              name: travelerProfile.full_name,
+              rating: travelerProfile.rating || 5.0,
+              photo: travelerProfile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(travelerProfile.full_name)}`
+            } : undefined
+          };
+        });
+        setShipments(mappedShipments);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar envios:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   // Se houver um envio selecionado, renderiza a tela de detalhes (simulando navegação nativa)
   if (selectedShipment) {
@@ -166,7 +165,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     );
   }
 
-  const filteredShipments = MOCK_SHIPMENTS.filter(s => {
+  const filteredShipments = shipments.filter(s => {
     const isTabMatch = activeTab === 'active' 
       ? (s.status !== 'delivered' && s.status !== 'canceled')
       : (s.status === 'delivered' || s.status === 'canceled');
@@ -179,8 +178,8 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     return isTabMatch && isSearchMatch;
   });
 
-  const activeCount = MOCK_SHIPMENTS.filter(s => s.status !== 'delivered' && s.status !== 'canceled').length;
-  const historyCount = MOCK_SHIPMENTS.filter(s => s.status === 'delivered' || s.status === 'canceled').length;
+  const activeCount = shipments.filter(s => s.status !== 'delivered' && s.status !== 'canceled').length;
+  const historyCount = shipments.filter(s => s.status === 'delivered' || s.status === 'canceled').length;
 
   return (
     <div className="space-y-6 page-transition pb-24">
@@ -189,9 +188,10 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         <SheetContent side="bottom" className="h-[90vh] p-0 rounded-t-[2rem] overflow-hidden flex flex-col">
           <SheetHeader className="px-6 pt-6 pb-2 border-b">
             <SheetTitle className="text-xl font-black tracking-tighter text-left">Novo Envio</SheetTitle>
+            <SheetDescription className="sr-only">Preencha os dados para solicitar um novo envio</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            <PackageForm onComplete={() => setIsCreating(false)} />
+            <PackageForm onComplete={() => { setIsCreating(false); fetchShipments(); }} />
           </div>
         </SheetContent>
       </Sheet>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { supabase } from "@/lib/supabase";
 import { 
-  Bell, 
   Package, 
   Zap, 
   ChevronRight, 
@@ -24,6 +24,7 @@ import {
   History,
   Wallet
 } from "lucide-react";
+import { NotificationBell } from "@/components/vya/shared/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,23 +37,154 @@ interface HomeDashboardProps {
   onAction?: () => void;
 }
 
-export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
-  const userName = "Lucas";
+interface ActiveShipment {
+  id: string;
+  status: string;
+  destination: string;
+  progress: number;
+}
 
-  // Mock de um envio ativo para mostrar no topo da Home do Remetente
-  const activeShipment = {
-    id: 'VY-9821',
-    status: 'transit',
-    destination: 'Campinas, SP',
-    eta: 'Hoje, 16:30',
-    progress: 65
+interface AvailablePackage {
+  id: string;
+  size: string;
+  earnings: number;
+  from: string;
+  to: string;
+  item: string;
+  time: string;
+  urgency: 'high' | 'medium' | 'low';
+  distance: string;
+}
+
+interface NextTrip {
+  origin: string;
+  destination: string;
+  date: string;
+  time: string;
+}
+
+function relativeTime(iso: string) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'Agora mesmo';
+  if (mins < 60) return `Há ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `Há ${hrs}h`;
+  return `Há ${Math.floor(hrs / 24)}d`;
+}
+
+export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
+  const [profile, setProfile] = useState<{ full_name: string; avatar_url?: string } | null>(null);
+  const [activeShipment, setActiveShipment] = useState<ActiveShipment | null>(null);
+  const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
+  const [nextTrip, setNextTrip] = useState<NextTrip | null>(null);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [todayDeliveries, setTodayDeliveries] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchData();
+  }, [mode]);
+
+  const fetchData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Perfil
+      const { data: prof } = await supabase
+        .from('profiles')
+        .select('full_name, avatar_url')
+        .eq('id', user.id)
+        .single();
+      if (prof) setProfile(prof);
+
+      if (mode === 'sender') {
+        // Envio ativo mais recente
+        const statusProgress: Record<string, number> = {
+          searching: 15, waiting_pickup: 40, transit: 65, waiting_delivery: 90,
+        };
+        const { data: pkgs } = await supabase
+          .from('packages')
+          .select('id, status, destination_city, destination_state, updated_at')
+          .eq('sender_id', user.id)
+          .not('status', 'in', '("delivered","canceled")')
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (pkgs && pkgs.length > 0) {
+          const p = pkgs[0];
+          setActiveShipment({
+            id: 'VY-' + p.id.substring(0, 5).toUpperCase(),
+            status: p.status,
+            destination: `${p.destination_city}, ${p.destination_state}`,
+            progress: statusProgress[p.status] || 50,
+          });
+        } else {
+          setActiveShipment(null);
+        }
+      } else {
+        // Próxima viagem do viajante
+        const { data: trips } = await supabase
+          .from('trips')
+          .select('origin_city, origin_state, destination_city, destination_state, departure_date, departure_time')
+          .eq('traveler_id', user.id)
+          .eq('status', 'scheduled')
+          .order('departure_date', { ascending: true })
+          .limit(1);
+        if (trips && trips.length > 0) {
+          const t = trips[0];
+          setNextTrip({
+            origin: `${t.origin_city}, ${t.origin_state}`,
+            destination: `${t.destination_city}, ${t.destination_state}`,
+            date: new Date(t.departure_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
+            time: t.departure_time.substring(0, 5),
+          });
+        }
+
+        // Ganhos e entregas hoje
+        const today = new Date().toISOString().split('T')[0];
+        const { data: todayPkgs } = await supabase
+          .from('packages')
+          .select('price')
+          .eq('status', 'delivered')
+          .gte('updated_at', `${today}T00:00:00`);
+        if (todayPkgs) {
+          setTodayEarnings(todayPkgs.reduce((acc, p) => acc + (p.price * 0.8), 0));
+          setTodayDeliveries(todayPkgs.length);
+        }
+
+        // Pacotes disponíveis (searching)
+        const { data: available } = await supabase
+          .from('packages')
+          .select('id, description, size, price, origin_city, origin_state, destination_city, destination_state, created_at')
+          .eq('status', 'searching')
+          .order('created_at', { ascending: false })
+          .limit(5);
+        if (available) {
+          setAvailablePackages(available.map((pkg, i) => ({
+            id: 'VY-' + pkg.id.substring(0, 4).toUpperCase(),
+            size: pkg.size,
+            earnings: pkg.price * 0.8,
+            from: `${pkg.origin_city}, ${pkg.origin_state}`,
+            to: `${pkg.destination_city}, ${pkg.destination_state}`,
+            item: pkg.description,
+            time: relativeTime(pkg.created_at),
+            urgency: i === 0 ? 'high' : i === 1 ? 'medium' : 'low',
+            distance: '',
+          })));
+        }
+      }
+    } catch (e) {
+      console.error('HomeDashboard fetchData error:', e);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const availablePackages = [
-    { id: 'VY-982', size: 'P', earnings: 18.50, from: 'Caruaru, PE', to: 'Recife, PE', item: 'Smartphone Samsung', time: 'Há 12 min', urgency: 'high', distance: '135km' },
-    { id: 'VY-441', size: 'M', earnings: 32.20, from: 'Bezerros, PE', to: 'Recife, PE', item: 'Caixa de Doces', time: 'Há 45 min', urgency: 'medium', distance: '102km' },
-    { id: 'VY-772', size: 'G', earnings: 55.00, from: 'Gravatá, PE', to: 'Vitória, PE', item: 'Fardo de Roupas', time: 'Há 1h', urgency: 'low', distance: '52km' },
-  ];
+  const firstName = profile?.full_name?.split(' ')[0] || '...';
+  const avatarUrl = profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'U')}&background=random&size=128`;
+  const avatarFallback = profile?.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
 
   return (
     <div className="space-y-6 page-transition pb-24">
@@ -60,18 +192,15 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
       <header className="flex justify-between items-center pt-4 px-1">
         <div className="flex items-center gap-3">
           <Avatar className="h-12 w-12 border-2 border-primary/10 shadow-sm">
-            <AvatarImage src="https://picsum.photos/seed/vya-user/200/200" />
-            <AvatarFallback>LU</AvatarFallback>
+            <AvatarImage src={avatarUrl} />
+            <AvatarFallback>{avatarFallback}</AvatarFallback>
           </Avatar>
           <div>
             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Bem-vindo de volta</p>
-            <h1 className="text-xl font-black text-foreground tracking-tight leading-none">{userName}</h1>
+            <h1 className="text-xl font-black text-foreground tracking-tight leading-none">{firstName}</h1>
           </div>
         </div>
-        <Button variant="ghost" size="icon" className="rounded-full bg-muted/30 h-10 w-10 hover:bg-muted/50 active:scale-90 transition-all relative">
-          <Bell className="h-5 w-5" />
-          <span className="absolute top-2 right-2 h-2 w-2 bg-primary rounded-full border-2 border-background" />
-        </Button>
+        <NotificationBell />
       </header>
 
       {mode === 'sender' ? (
@@ -118,7 +247,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                   <div className="space-y-2">
                     <div className="flex justify-between text-[10px] font-bold text-muted-foreground">
                       <span>Progresso</span>
-                      <span className="text-primary">Chega {activeShipment.eta}</span>
+                      <span className="text-primary">{activeShipment.progress}% concluído</span>
                     </div>
                     <div className="h-2 w-full bg-muted rounded-full overflow-hidden">
                       <div className="h-full bg-primary transition-all duration-1000" style={{ width: `${activeShipment.progress}%` }} />
@@ -174,7 +303,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
               <div className="flex justify-between items-start">
                 <div className="space-y-1">
                   <Badge className="bg-white/20 text-white border-none backdrop-blur-md px-2.5 py-0.5 font-bold text-[9px] tracking-widest uppercase">Próxima Viagem</Badge>
-                  <h2 className="text-2xl font-black tracking-tight mt-1">Hoje, 14:00</h2>
+                  <h2 className="text-2xl font-black tracking-tight mt-1">{nextTrip ? `${nextTrip.date}, ${nextTrip.time}` : 'Nenhuma agendada'}</h2>
                 </div>
                 <div className="h-12 w-12 rounded-full bg-white/10 backdrop-blur-md flex items-center justify-center border border-white/20">
                   <Truck className="h-6 w-6 text-white" />
@@ -188,8 +317,8 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                   <MapPin className="h-2 w-2 text-white/70" />
                 </div>
                 <div className="flex-1 space-y-1">
-                  <p className="text-sm font-bold text-white/90 leading-none">Caruaru, PE</p>
-                  <p className="text-sm font-bold text-white/90 leading-none">Recife, PE</p>
+                  <p className="text-sm font-bold text-white/90 leading-none">{nextTrip?.origin || '—'}</p>
+                  <p className="text-sm font-bold text-white/90 leading-none">{nextTrip?.destination || '—'}</p>
                 </div>
               </div>
             </CardContent>
@@ -204,7 +333,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-green-600/80 uppercase tracking-widest">Ganhos Hoje</p>
-                  <p className="text-2xl font-black text-green-950 tracking-tighter">R$ 145,50</p>
+                  <p className="text-2xl font-black text-green-950 tracking-tighter">R$ {todayEarnings.toFixed(2)}</p>
                 </div>
               </CardContent>
             </Card>
@@ -215,7 +344,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-blue-600/80 uppercase tracking-widest">Entregas</p>
-                  <p className="text-2xl font-black text-blue-950 tracking-tighter">4 Concluídas</p>
+                  <p className="text-2xl font-black text-blue-950 tracking-tighter">{todayDeliveries} Concluída{todayDeliveries !== 1 ? 's' : ''}</p>
                 </div>
               </CardContent>
             </Card>
