@@ -108,10 +108,10 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col px-6 py-10 page-transition overflow-y-auto">
-      <div className="flex-1 flex flex-col justify-center space-y-10 pb-10">
+    <div className="min-h-screen bg-white overflow-y-auto">
+      <div className="flex flex-col px-6 pt-16 pb-16 space-y-10 max-w-sm mx-auto w-full">
         {/* Header / Logo */}
-        <div className="space-y-6 text-center mt-8">
+        <div className="space-y-6 text-center">
           <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-primary to-brand-purple shadow-2xl shadow-primary/30 text-white mx-auto">
             <Box className="h-10 w-10" />
           </div>
@@ -146,7 +146,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5 max-w-sm mx-auto w-full">
+        <form onSubmit={handleSubmit} className="space-y-5 w-full">
           {error && (
             <div className="p-4 rounded-2xl bg-red-50 text-red-600 text-sm font-medium flex items-start gap-3">
               <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
