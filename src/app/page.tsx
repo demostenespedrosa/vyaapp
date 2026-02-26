@@ -9,6 +9,7 @@ import { AdminDashboard } from "@/components/vya/admin/AdminDashboard";
 import { WalletDashboard } from "@/components/vya/wallet/WalletDashboard";
 import { ProfileView } from "@/components/vya/profile/ProfileView";
 import { AuthScreen } from "@/components/vya/auth/AuthScreen";
+import { OnboardingFlow } from "@/components/vya/onboarding/OnboardingFlow";
 import { AppProvider, useAppContext } from "@/contexts/AppContext";
 import { Box } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,6 +22,7 @@ function AppShell() {
   const {
     isLoadingAuth,
     isLoggedIn,
+    userId,
     mode,
     setMode,
     handleLogout,
@@ -29,7 +31,17 @@ function AppShell() {
 
   const [activeTab, setActiveTab] = useState("home");
   const [startCreating, setStartCreating] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
+
+  // Detecta novo usuário via localStorage
+  useEffect(() => {
+    if (!userId) return;
+    const key = `vya_onboarded_${userId}`;
+    if (!localStorage.getItem(key)) {
+      setShowOnboarding(true);
+    }
+  }, [userId]);
 
   // Rola para o topo ao mudar aba
   useEffect(() => {
@@ -43,6 +55,13 @@ function AppShell() {
     }
     setStartCreating(false);
   }, [mode]);
+
+  const handleOnboardingComplete = () => {
+    if (userId) localStorage.setItem(`vya_onboarded_${userId}`, "1");
+    // Todos começam como sender — viajante é opt-in pelo perfil
+    setMode("sender");
+    setShowOnboarding(false);
+  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -128,8 +147,21 @@ function AppShell() {
     return <AuthScreen onLoginSuccess={() => {}} />;
   }
 
+  // Primeiro nome do usu\u00e1rio para o onboarding
+  const firstName = profile?.full_name
+    ? profile.full_name.split(" ")[0]
+    : "amigo";
+
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
+      {/* Onboarding para novo usu\u00e1rio */}
+      {showOnboarding && (
+        <OnboardingFlow
+          firstName={firstName}
+          onComplete={handleOnboardingComplete}
+        />
+      )}
+
       <main
         ref={mainRef}
         className={cn(
