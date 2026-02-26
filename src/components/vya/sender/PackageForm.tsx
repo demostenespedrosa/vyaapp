@@ -37,6 +37,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/lib/supabase";
 import { CitySelect, type CityOption } from "@/components/vya/shared/CitySelect";
+import { useAppContext } from "@/contexts/AppContext";
 
 const formSchema = z.object({
   description: z.string().min(5, "Conta pra gente o que tem dentro!"),
@@ -71,24 +72,11 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Tabela de preços do admin
-  const [pricingConfig, setPricingConfig] = useState<any | null>(null);
-  const [platformFeePercent, setPlatformFeePercent] = useState<number>(20);
-  const [pricingLoading, setPricingLoading] = useState(true);
-
-  useEffect(() => {
-    const loadPricing = async () => {
-      try {
-        const { data: p } = await supabase.from('configs').select('value').eq('key', 'pricing_table').single();
-        if (p) setPricingConfig(p.value);
-        const { data: f } = await supabase.from('configs').select('value').eq('key', 'platform_fee_percent').single();
-        if (f != null) setPlatformFeePercent(Number(f.value));
-      } finally {
-        setPricingLoading(false);
-      }
-    };
-    loadPricing();
-  }, []);
+  // Configs de preço vêm do AppContext (buscadas uma única vez por sessão)
+  const { configs, configsLoaded } = useAppContext();
+  const pricingConfig = configs.pricingTable;
+  const platformFeePercent = configs.platformFeePercent;
+  const pricingLoading = !configsLoaded;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),

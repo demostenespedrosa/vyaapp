@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
+import { useAppContext } from "@/contexts/AppContext";
+import { dataCache } from "@/lib/dataCache";
 import { 
   Package, 
   Zap, 
@@ -74,7 +76,9 @@ function relativeTime(iso: string) {
 }
 
 export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
-  const [profile, setProfile] = useState<{ full_name: string; avatar_url?: string } | null>(null);
+  // Perfil vem do contexto global — sem fetch extra
+  const { profile, userId } = useAppContext();
+
   const [activeShipment, setActiveShipment] = useState<ActiveShipment | null>(null);
   const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
   const [nextTrip, setNextTrip] = useState<NextTrip | null>(null);
@@ -83,23 +87,33 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    if (!userId) return;
+    const cacheKey = `home:${mode}:${userId}`;
+    const cached = dataCache.get<{ activeShipment: ActiveShipment | null; availablePackages: AvailablePackage[]; nextTrip: NextTrip | null; todayEarnings: number; todayDeliveries: number }>(cacheKey, 45_000);
+    if (cached) {
+      setActiveShipment(cached.activeShipment);
+      setAvailablePackages(cached.availablePackages);
+      setNextTrip(cached.nextTrip);
+      setTodayEarnings(cached.todayEarnings);
+      setTodayDeliveries(cached.todayDeliveries);
+      setIsLoading(false);
+      return;
+    }
     fetchData();
-  }, [mode]);
+  }, [mode, userId]);
 
   const fetchData = async () => {
+    if (!userId) return;
     setIsLoading(true);
+
+    // Variáveis locais para poder salvar no cache após os fetches
+    let newActiveShipment: ActiveShipment | null = null;
+    let newAvailablePackages: AvailablePackage[] = [];
+    let newNextTrip: NextTrip | null = null;
+    let newTodayEarnings = 0;
+    let newTodayDeliveries = 0;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // Perfil
-      const { data: prof } = await supabase
-        .from('profiles')
-        .select('full_name, avatar_url')
-        .eq('id', user.id)
-        .single();
-      if (prof) setProfile(prof);
-
       if (mode === 'sender') {
         // Envio ativo mais recente
         const statusProgress: Record<string, number> = {
@@ -108,38 +122,36 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
         const { data: pkgs } = await supabase
           .from('packages')
           .select('id, status, destination_city, destination_state, updated_at')
-          .eq('sender_id', user.id)
+          .eq('sender_id', userId)
           .not('status', 'in', '("delivered","canceled")')
           .order('created_at', { ascending: false })
           .limit(1);
         if (pkgs && pkgs.length > 0) {
           const p = pkgs[0];
-          setActiveShipment({
+          newActiveShipment = {
             id: 'VY-' + p.id.substring(0, 5).toUpperCase(),
             status: p.status,
             destination: `${p.destination_city}, ${p.destination_state}`,
             progress: statusProgress[p.status] || 50,
-          });
-        } else {
-          setActiveShipment(null);
+          };
         }
       } else {
         // Próxima viagem do viajante
         const { data: trips } = await supabase
           .from('trips')
           .select('origin_city, origin_state, destination_city, destination_state, departure_date, departure_time')
-          .eq('traveler_id', user.id)
+          .eq('traveler_id', userId)
           .eq('status', 'scheduled')
           .order('departure_date', { ascending: true })
           .limit(1);
         if (trips && trips.length > 0) {
           const t = trips[0];
-          setNextTrip({
+          newNextTrip = {
             origin: `${t.origin_city}, ${t.origin_state}`,
             destination: `${t.destination_city}, ${t.destination_state}`,
             date: new Date(t.departure_date).toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' }),
             time: t.departure_time.substring(0, 5),
-          });
+          };
         }
 
         // Ganhos e entregas hoje
@@ -150,8 +162,8 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
           .eq('status', 'delivered')
           .gte('updated_at', `${today}T00:00:00`);
         if (todayPkgs) {
-          setTodayEarnings(todayPkgs.reduce((acc, p) => acc + (p.price * 0.8), 0));
-          setTodayDeliveries(todayPkgs.length);
+          newTodayEarnings = todayPkgs.reduce((acc, p) => acc + (p.price * 0.8), 0);
+          newTodayDeliveries = todayPkgs.length;
         }
 
         // Pacotes disponíveis (searching)
@@ -162,7 +174,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
           .order('created_at', { ascending: false })
           .limit(5);
         if (available) {
-          setAvailablePackages(available.map((pkg, i) => ({
+          newAvailablePackages = available.map((pkg, i) => ({
             id: 'VY-' + pkg.id.substring(0, 4).toUpperCase(),
             size: pkg.size,
             earnings: pkg.price * 0.8,
@@ -172,9 +184,24 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
             time: relativeTime(pkg.created_at),
             urgency: i === 0 ? 'high' : i === 1 ? 'medium' : 'low',
             distance: '',
-          })));
+          }));
         }
       }
+
+      // Atualiza state e cache com os mesmos valores locais
+      setActiveShipment(newActiveShipment);
+      setNextTrip(newNextTrip);
+      setAvailablePackages(newAvailablePackages);
+      setTodayEarnings(newTodayEarnings);
+      setTodayDeliveries(newTodayDeliveries);
+
+      dataCache.set(`home:${mode}:${userId}`, {
+        activeShipment: newActiveShipment,
+        availablePackages: newAvailablePackages,
+        nextTrip: newNextTrip,
+        todayEarnings: newTodayEarnings,
+        todayDeliveries: newTodayDeliveries,
+      });
     } catch (e) {
       console.error('HomeDashboard fetchData error:', e);
     } finally {

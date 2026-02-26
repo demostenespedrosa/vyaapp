@@ -1,8 +1,10 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { dataCache } from "@/lib/dataCache";
+import { useAppContext } from "@/contexts/AppContext";
 import { 
   Navigation, 
   MapPin, 
@@ -50,71 +52,84 @@ interface TravelerTrip {
 }
 
 export function TravelerView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
+  const { userId } = useAppContext();
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [selectedTrip, setSelectedTrip] = useState<TravelerTrip | null>(null);
   const [trips, setTrips] = useState<TravelerTrip[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchTrips();
-    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
-    if (scrollable) scrollable.scrollTop = 0;
-  }, []);
+  const CACHE_KEY = userId ? `trips:${userId}` : null;
 
-  useEffect(() => {
-    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
-    if (scrollable) scrollable.scrollTop = 0;
-  }, [selectedTrip, isCreating]);
+  const mapTrips = (data: any[]): TravelerTrip[] =>
+    data.map(trip => ({
+      id: trip.id.substring(0, 8).toUpperCase(),
+      origin: `${trip.origin_city}, ${trip.origin_state}`,
+      destination: `${trip.destination_city}, ${trip.destination_state}`,
+      date: new Date(trip.departure_date).toLocaleDateString('pt-BR'),
+      time: trip.departure_time.substring(0, 5),
+      status: trip.status as 'scheduled' | 'active' | 'completed',
+      packages: trip.packages?.map((pkg: any) => ({
+        id: pkg.id.substring(0, 8).toUpperCase(),
+        item: pkg.description,
+        sender: pkg.profiles?.full_name || 'Remetente',
+        status: pkg.status,
+        earnings: pkg.price * 0.8
+      })) || []
+    }));
 
-  const fetchTrips = async () => {
-    setIsLoading(true);
+  const fetchTrips = useCallback(async (silent = false) => {
+    if (!userId) return;
+    if (!silent) setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('trips')
-        .select(`
-          *,
-          packages (
-            id,
-            description,
-            status,
-            price,
-            profiles!packages_sender_id_fkey (full_name)
-          )
-        `)
-        .eq('traveler_id', user.id)
+        .select(`*, packages (id, description, status, price, profiles!packages_sender_id_fkey (full_name))`)
+        .eq('traveler_id', userId)
         .order('departure_date', { ascending: true });
 
       if (error) throw error;
-
       if (data) {
-        const mappedTrips: TravelerTrip[] = data.map(trip => ({
-          id: trip.id.substring(0, 8).toUpperCase(),
-          origin: `${trip.origin_city}, ${trip.origin_state}`,
-          destination: `${trip.destination_city}, ${trip.destination_state}`,
-          date: new Date(trip.departure_date).toLocaleDateString('pt-BR'),
-          time: trip.departure_time.substring(0, 5),
-          status: trip.status as 'scheduled' | 'active' | 'completed',
-          packages: trip.packages?.map((pkg: any) => ({
-            id: pkg.id.substring(0, 8).toUpperCase(),
-            item: pkg.description,
-            sender: pkg.profiles?.full_name || 'Remetente',
-            status: pkg.status,
-            earnings: pkg.price * 0.8 // Assuming 20% platform fee
-          })) || []
-        }));
-        setTrips(mappedTrips);
+        const mapped = mapTrips(data);
+        setTrips(mapped);
+        if (CACHE_KEY) dataCache.set(CACHE_KEY, mapped);
       }
     } catch (error) {
       console.error("Erro ao buscar viagens:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId, CACHE_KEY]);
 
+  useEffect(() => {
+    if (!userId) return;
+
+    // 1. Mostra cache imediatamente se disponível (zero loading)
+    if (CACHE_KEY) {
+      const cached = dataCache.get<TravelerTrip[]>(CACHE_KEY);
+      if (cached) {
+        setTrips(cached);
+        setIsLoading(false);
+      } else {
+        fetchTrips();
+      }
+    }
+
+    // 2. Realtime: qualquer mudança nas viagens do usuário → refetch silencioso
+    const channel = supabase
+      .channel(`trips-traveler:${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'trips', filter: `traveler_id=eq.${userId}` },
+        () => fetchTrips(true)
+      )
+      .subscribe();
+
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
+
+  // Navegação nativa: detalhe da viagem selecionada
   if (selectedTrip) {
     return (
       <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto">
@@ -140,7 +155,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
             <SheetDescription className="sr-only">Cadastre os detalhes da sua viagem</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            <TripForm onComplete={() => { setIsCreating(false); fetchTrips(); }} />
+            <TripForm onComplete={() => { if (CACHE_KEY) dataCache.invalidate(CACHE_KEY); dataCache.invalidatePrefix('home:'); setIsCreating(false); fetchTrips(); }} />
           </div>
         </SheetContent>
       </Sheet>

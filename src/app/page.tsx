@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -11,32 +10,22 @@ import { WalletDashboard } from "@/components/vya/wallet/WalletDashboard";
 import { ProfileView } from "@/components/vya/profile/ProfileView";
 import { AuthScreen } from "@/components/vya/auth/AuthScreen";
 import { supabase } from "@/lib/supabase";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent } from "@/components/ui/card";
-import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { 
-  Settings, 
-  Shield, 
-  CreditCard, 
-  LogOut, 
-  ChevronRight, 
-  ShieldCheck, 
-  Box, 
-  ArrowRight,
-  User as UserIcon,
-  ShieldAlert,
-  Sparkles
-} from "lucide-react";
+import { AppProvider, useAppContext } from "@/contexts/AppContext";
+import { Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export default function Home() {
+// ---------------------------------------------------------------------------
+// AppShell — componente interno que pode usar o AppContext
+// ---------------------------------------------------------------------------
+
+function AppShell() {
+  const { profile } = useAppContext();
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoadingAuth, setIsLoadingAuth] = useState(true);
-  const [activeTab, setActiveTab] = useState('home');
-  const [mode, setMode] = useState<'sender' | 'traveler' | 'admin'>('sender');
+  const [activeTab, setActiveTab] = useState("home");
+  const [mode, setMode] = useState<"sender" | "traveler" | "admin">("sender");
   const [startCreating, setStartCreating] = useState(false);
-  const [userProfile, setUserProfile] = useState<{ id: string; full_name: string; email: string; cpf: string; phone: string; avatar_url?: string } | null>(null);
   const mainRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -49,9 +38,10 @@ export default function Home() {
       setIsLoadingAuth(false);
     }, 8000);
 
-    // Supabase v2: onAuthStateChange já dispara INITIAL_SESSION na montagem,
-    // dispensando getSession() manual e eliminando a race condition.
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Supabase v2: onAuthStateChange já dispara INITIAL_SESSION na montagem
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (_event, session) => {
       clearTimeout(safetyTimer);
       if (session?.user) {
         await handleLoginSuccess(session.user);
@@ -68,46 +58,32 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    if (mode === 'sender' && (activeTab === 'action' || activeTab === 'wallet')) {
-      setActiveTab('home');
+    if (mode === "sender" && (activeTab === "action" || activeTab === "wallet")) {
+      setActiveTab("home");
     }
     setStartCreating(false);
   }, [mode]);
 
+  // Só busca role — perfil completo já é cacheado e atualizado pelo AppContext
   const handleLoginSuccess = async (user: any) => {
-    let role = 'cliente'; // Fallback padrão
+    let role = "cliente";
 
     try {
-      // Busca a role diretamente do banco de dados
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, role, full_name, cpf, phone, avatar_url')
-        .eq('id', user.id)
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
         .single();
-      
-      if (error) {
-        console.error("Erro ao buscar role no Supabase:", error.message);
-      }
-      
-      if (data) {
-        role = String(data.role || 'cliente').trim().toLowerCase();
-        setUserProfile({
-          id: data.id,
-          full_name: data.full_name || '',
-          email: user.email || '',
-          cpf: data.cpf || '',
-          phone: data.phone || '',
-          avatar_url: data.avatar_url,
-        });
+
+      if (data?.role) {
+        role = String(data.role).trim().toLowerCase();
       } else if (user.user_metadata?.role) {
         role = String(user.user_metadata.role).trim().toLowerCase();
       }
     } catch (err) {
-      console.error("Erro inesperado ao buscar role:", err);
+      console.error("Erro ao buscar role:", err);
     } finally {
-      // Garante que o loading SEMPRE termina, independente de qualquer erro
-      const finalMode = role === 'admin' ? 'admin' : 'sender';
-      setMode(finalMode);
+      setMode(role === "admin" ? "admin" : "sender");
       setIsLoggedIn(true);
       setIsLoadingAuth(false);
     }
@@ -115,58 +91,78 @@ export default function Home() {
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
-    if (tab !== 'activity' && tab !== 'action') {
+    if (tab !== "activity" && tab !== "action") {
       setStartCreating(false);
     }
   };
 
   const handleHomeAction = () => {
     setStartCreating(true);
-    if (mode === 'sender') {
-      setActiveTab('activity');
-    } else {
-      setActiveTab('action');
-    }
+    setActiveTab(mode === "sender" ? "activity" : "action");
   };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setIsLoggedIn(false);
-    setActiveTab('home');
-    setMode('sender');
+    setActiveTab("home");
+    setMode("sender");
   };
 
+  // Converte o UserProfile do contexto para o formato que ProfileView espera
+  const profileForView = profile
+    ? {
+        id: profile.id,
+        full_name: profile.full_name,
+        email: profile.email,
+        cpf: profile.cpf,
+        phone: profile.phone,
+        avatar_url: profile.avatar_url,
+      }
+    : null;
+
   const renderContent = () => {
-    if (mode === 'admin') {
+    if (mode === "admin") {
       return <AdminDashboard onLogout={handleLogout} />;
     }
 
     switch (activeTab) {
-      case 'home':
-        return <HomeDashboard mode={mode as 'sender' | 'traveler'} onAction={handleHomeAction} />;
-      case 'activity':
-        return mode === 'sender' ? (
+      case "home":
+        return <HomeDashboard mode={mode as "sender" | "traveler"} onAction={handleHomeAction} />;
+      case "activity":
+        return mode === "sender" ? (
           <SenderView initialIsCreating={startCreating} />
         ) : (
           <TravelerView initialIsCreating={false} />
         );
-      case 'action':
-        return mode === 'sender' 
-          ? <SenderView initialIsCreating={true} /> 
-          : <TravelerView initialIsCreating={true} />;
-      case 'wallet':
+      case "action":
+        return mode === "sender" ? (
+          <SenderView initialIsCreating={true} />
+        ) : (
+          <TravelerView initialIsCreating={true} />
+        );
+      case "wallet":
         return <WalletDashboard />;
-      case 'profile':
-        return <ProfileView mode={mode as 'sender' | 'traveler'} onModeChange={setMode} onLogout={handleLogout} initialProfile={userProfile} onProfileUpdate={(p) => setUserProfile(p)} />;
+      case "profile":
+        return (
+          <ProfileView
+            mode={mode as "sender" | "traveler"}
+            onModeChange={setMode}
+            onLogout={handleLogout}
+            initialProfile={profileForView}
+            onProfileUpdate={() => {
+              /* AppContext atualiza via realtime */
+            }}
+          />
+        );
       default:
-        return <HomeDashboard mode={mode as 'sender' | 'traveler'} onAction={handleHomeAction} />;
+        return <HomeDashboard mode={mode as "sender" | "traveler"} onAction={handleHomeAction} />;
     }
   };
 
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary shadow-2xl shadow-primary/30 text-white animate-pulse">
+        <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-primary to-brand-purple shadow-2xl shadow-primary/30 text-white animate-pulse">
           <Box className="h-10 w-10" />
         </div>
       </div>
@@ -179,21 +175,42 @@ export default function Home() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-background">
-      <main ref={mainRef} className={cn(
-        "flex-1 scrollable-content",
-        mode === 'admin' ? "bg-slate-50" : "px-4 pt-safe-area-top pb-10"
-      )}>
-        <div className={cn(
-          "h-full",
-          mode === 'admin' ? "w-full" : "max-w-md mx-auto"
-        )}>
+      <main
+        ref={mainRef}
+        className={cn(
+          "flex-1 scrollable-content",
+          mode === "admin" ? "bg-slate-50" : "px-4 pt-safe-area-top pb-10"
+        )}
+      >
+        <div
+          className={cn(
+            "h-full",
+            mode === "admin" ? "w-full" : "max-w-md mx-auto"
+          )}
+        >
           {renderContent()}
         </div>
       </main>
 
-      {mode !== 'admin' && (
-        <BottomNav mode={mode as 'sender' | 'traveler'} activeTab={activeTab} onTabChange={handleTabChange} />
+      {mode !== "admin" && (
+        <BottomNav
+          mode={mode as "sender" | "traveler"}
+          activeTab={activeTab}
+          onTabChange={handleTabChange}
+        />
       )}
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Home — wrapper com o AppProvider (contexto global de sessão)
+// ---------------------------------------------------------------------------
+
+export default function Home() {
+  return (
+    <AppProvider>
+      <AppShell />
+    </AppProvider>
   );
 }

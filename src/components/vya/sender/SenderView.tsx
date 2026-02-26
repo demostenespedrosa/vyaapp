@@ -1,8 +1,10 @@
 
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
+import { dataCache } from "@/lib/dataCache";
+import { useAppContext } from "@/contexts/AppContext";
 import { 
   Package, 
   Plus, 
@@ -72,6 +74,7 @@ interface Shipment {
 }
 
 export function SenderView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
+  const { userId } = useAppContext();
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
@@ -79,83 +82,92 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
   const [shipments, setShipments] = useState<Shipment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    fetchShipments();
-    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
-    if (scrollable) scrollable.scrollTop = 0;
-  }, []);
+  const CACHE_KEY = userId ? `shipments:${userId}` : null;
 
-  useEffect(() => {
-    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
-    if (scrollable) scrollable.scrollTop = 0;
-  }, [selectedShipment, isCreating]);
+  const mapShipments = (data: any[]): Shipment[] => {
+    const statusMap: Record<string, { label: string; progress: number }> = {
+      'searching': { label: 'Buscando viajante', progress: 15 },
+      'waiting_pickup': { label: 'Aguardando coleta', progress: 40 },
+      'transit': { label: 'A caminho', progress: 65 },
+      'waiting_delivery': { label: 'Aguardando retirada', progress: 90 },
+      'delivered': { label: 'Concluído', progress: 100 },
+      'canceled': { label: 'Cancelado', progress: 0 }
+    };
+    return data.map(pkg => {
+      const travelerProfile = pkg.trips?.profiles;
+      return {
+        id: pkg.id.substring(0, 8).toUpperCase(),
+        status: pkg.status as ShipmentStatus,
+        statusLabel: statusMap[pkg.status]?.label || pkg.status,
+        description: pkg.description,
+        from: `${pkg.origin_city}, ${pkg.origin_state}`,
+        to: `${pkg.destination_city}, ${pkg.destination_state}`,
+        date: new Date(pkg.created_at).toLocaleString('pt-BR'),
+        size: pkg.size as 'P' | 'M' | 'G',
+        progress: statusMap[pkg.status]?.progress || 0,
+        price: pkg.price,
+        pickupCode: pkg.pickup_code,
+        deliveryCode: pkg.delivery_code,
+        recipient: { name: pkg.recipient_name, phone: pkg.recipient_phone, cpf: pkg.recipient_cpf },
+        traveler: travelerProfile ? {
+          name: travelerProfile.full_name,
+          rating: travelerProfile.rating || 5.0,
+          photo: travelerProfile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(travelerProfile.full_name)}`
+        } : undefined
+      };
+    });
+  };
 
-  const fetchShipments = async () => {
-    setIsLoading(true);
+  const fetchShipments = useCallback(async (silent = false) => {
+    if (!userId) return;
+    if (!silent) setIsLoading(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('packages')
-        .select(`
-          *,
-          trips (
-            traveler_id,
-            profiles (full_name, avatar_url, rating)
-          )
-        `)
-        .eq('sender_id', user.id)
+        .select(`*, trips (traveler_id, profiles (full_name, avatar_url, rating))`)
+        .eq('sender_id', userId)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
       if (data) {
-        const mappedShipments: Shipment[] = data.map(pkg => {
-          const statusMap: Record<string, { label: string, progress: number }> = {
-            'searching': { label: 'Buscando viajante', progress: 15 },
-            'waiting_pickup': { label: 'Aguardando coleta', progress: 40 },
-            'transit': { label: 'A caminho', progress: 65 },
-            'waiting_delivery': { label: 'Aguardando retirada', progress: 90 },
-            'delivered': { label: 'Concluído', progress: 100 },
-            'canceled': { label: 'Cancelado', progress: 0 }
-          };
-
-          const travelerProfile = pkg.trips?.profiles;
-
-          return {
-            id: pkg.id.substring(0, 8).toUpperCase(),
-            status: pkg.status as ShipmentStatus,
-            statusLabel: statusMap[pkg.status]?.label || pkg.status,
-            description: pkg.description,
-            from: `${pkg.origin_city}, ${pkg.origin_state}`,
-            to: `${pkg.destination_city}, ${pkg.destination_state}`,
-            date: new Date(pkg.created_at).toLocaleString('pt-BR'),
-            size: pkg.size as 'P' | 'M' | 'G',
-            progress: statusMap[pkg.status]?.progress || 0,
-            price: pkg.price,
-            pickupCode: pkg.pickup_code,
-            deliveryCode: pkg.delivery_code,
-            recipient: {
-              name: pkg.recipient_name,
-              phone: pkg.recipient_phone,
-              cpf: pkg.recipient_cpf
-            },
-            traveler: travelerProfile ? {
-              name: travelerProfile.full_name,
-              rating: travelerProfile.rating || 5.0,
-              photo: travelerProfile.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(travelerProfile.full_name)}`
-            } : undefined
-          };
-        });
-        setShipments(mappedShipments);
+        const mapped = mapShipments(data);
+        setShipments(mapped);
+        if (CACHE_KEY) dataCache.set(CACHE_KEY, mapped);
       }
     } catch (error) {
       console.error("Erro ao buscar envios:", error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [userId, CACHE_KEY]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    // 1. Mostra cache imediatamente se disponível (zero loading)
+    if (CACHE_KEY) {
+      const cached = dataCache.get<Shipment[]>(CACHE_KEY);
+      if (cached) {
+        setShipments(cached);
+        setIsLoading(false);
+      } else {
+        fetchShipments();
+      }
+    }
+
+    // 2. Realtime: qualquer mudança no pacote do usuário → refetch silencioso
+    const channel = supabase
+      .channel(`packages-sender:${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'packages', filter: `sender_id=eq.${userId}` },
+        () => fetchShipments(true) // silent=true para não mostrar spinner
+      )
+      .subscribe();
+
+    const scrollable = document.querySelector('.scrollable-content') as HTMLElement;
+    if (scrollable) scrollable.scrollTop = 0;
+
+    return () => { supabase.removeChannel(channel); };
+  }, [userId]);
 
   // Se houver um envio selecionado, renderiza a tela de detalhes (simulando navegação nativa)
   if (selectedShipment) {
@@ -192,7 +204,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
             <SheetDescription className="sr-only">Preencha os dados para solicitar um novo envio</SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto p-6">
-            <PackageForm onComplete={() => { setIsCreating(false); fetchShipments(); }} />
+            <PackageForm onComplete={() => { if (CACHE_KEY) dataCache.invalidate(CACHE_KEY); dataCache.invalidatePrefix('home:'); setIsCreating(false); fetchShipments(); }} />
           </div>
         </SheetContent>
       </Sheet>
