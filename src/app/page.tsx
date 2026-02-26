@@ -44,25 +44,27 @@ export default function Home() {
   }, [activeTab]);
 
   useEffect(() => {
-    // Check active session on mount
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (session?.user) {
-        await handleLoginSuccess(session.user);
-      } else {
-        setIsLoadingAuth(false);
-      }
-    });
+    // Timeout de segurança: se nada responder em 8s, libera a tela de login
+    const safetyTimer = setTimeout(() => {
+      setIsLoadingAuth(false);
+    }, 8000);
 
-    // Listen for auth changes
+    // Supabase v2: onAuthStateChange já dispara INITIAL_SESSION na montagem,
+    // dispensando getSession() manual e eliminando a race condition.
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      clearTimeout(safetyTimer);
       if (session?.user) {
         await handleLoginSuccess(session.user);
       } else {
         setIsLoggedIn(false);
+        setIsLoadingAuth(false);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
@@ -102,13 +104,13 @@ export default function Home() {
       }
     } catch (err) {
       console.error("Erro inesperado ao buscar role:", err);
+    } finally {
+      // Garante que o loading SEMPRE termina, independente de qualquer erro
+      const finalMode = role === 'admin' ? 'admin' : 'sender';
+      setMode(finalMode);
+      setIsLoggedIn(true);
+      setIsLoadingAuth(false);
     }
-
-    // Força a atualização do estado com base na role resolvida
-    const finalMode = role === 'admin' ? 'admin' : 'sender';
-    setMode(finalMode);
-    setIsLoggedIn(true);
-    setIsLoadingAuth(false);
   };
 
   const handleTabChange = (tab: string) => {
