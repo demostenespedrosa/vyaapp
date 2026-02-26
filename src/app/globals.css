@@ -6,25 +6,29 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 310 46% 15%;
+    --foreground: 10 30% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 310 46% 15%;
+    --card-foreground: 10 30% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 310 46% 15%;
-    --primary: 310 46% 45%; /* Um roxo mais vibrante e amigável */
+    --popover-foreground: 10 30% 12%;
+    --primary: 10 99% 63%; /* #fe6344 */
     --primary-foreground: 0 0% 100%;
     --secondary: 180 100% 25%; /* Verde água para confiança e sucesso */
     --secondary-foreground: 0 0% 100%;
-    --muted: 280 20% 96%;
-    --muted-foreground: 310 10% 45%;
-    --accent: 310 46% 95%;
-    --accent-foreground: 310 46% 30%;
+    --muted: 10 20% 96%;
+    --muted-foreground: 10 10% 45%;
+    --accent: 10 80% 95%;
+    --accent-foreground: 10 80% 30%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 98%;
-    --border: 310 10% 90%;
-    --input: 310 10% 90%;
-    --ring: 310 46% 45%;
+    --border: 10 10% 90%;
+    --input: 10 10% 90%;
+    --ring: 10 99% 63%;
     --radius: 1.5rem; /* Cantos muito arredondados para sensação orgânica */
+    /* Paleta de marca */
+    --brand-purple: 260 70% 62%; /* #875be3 — confiança, segurança, viajante */
+    --brand-pink: 333 79% 76%;   /* #f392b9 — calor humano, conexão */
+    --brand-yellow: 46 92% 64%;  /* #f8d94c — otimismo, avaliações, bônus */
   }
 }
 

@@ -155,7 +155,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
           <Button 
             onClick={() => setIsCreating(true)}
             size="icon"
-            className="h-12 w-12 rounded-full bg-secondary text-white shadow-lg shadow-secondary/20 active:scale-90 transition-all"
+            className="h-12 w-12 rounded-full bg-brand-purple text-white shadow-lg shadow-brand-purple/20 active:scale-90 transition-all"
           >
             <Plus className="h-6 w-6" />
           </Button>
@@ -195,7 +195,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
             onClick={() => setActiveTab('active')}
             className={cn(
               "flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300",
-              activeTab === 'active' ? "bg-white shadow-sm text-secondary scale-[0.98]" : "text-muted-foreground/60 hover:text-secondary"
+              activeTab === 'active' ? "bg-white shadow-sm text-brand-purple scale-[0.98]" : "text-muted-foreground/60 hover:text-brand-purple"
             )}
           >
             Em Aberto
@@ -204,7 +204,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
             onClick={() => setActiveTab('history')}
             className={cn(
               "flex-1 py-3 text-[11px] font-black uppercase tracking-widest rounded-[1.5rem] transition-all duration-300",
-              activeTab === 'history' ? "bg-white shadow-sm text-secondary scale-[0.98]" : "text-muted-foreground/60 hover:text-secondary"
+              activeTab === 'history' ? "bg-white shadow-sm text-brand-purple scale-[0.98]" : "text-muted-foreground/60 hover:text-brand-purple"
             )}
           >
             Histórico
@@ -226,7 +226,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
                   <div className="flex items-center gap-3">
                     <div className={cn(
                       "h-12 w-12 rounded-[1.2rem] flex items-center justify-center shrink-0",
-                      trip.status === 'active' ? "bg-green-50 text-green-600" : "bg-secondary/10 text-secondary"
+                      trip.status === 'active' ? "bg-green-50 text-green-600" : "bg-brand-purple/10 text-brand-purple"
                     )}>
                       {trip.status === 'active' ? <Truck className="h-6 w-6" /> : <Calendar className="h-6 w-6" />}
                     </div>
@@ -248,8 +248,8 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
                 <div className="pl-[3.75rem]">
                   <div className="flex items-center gap-3">
                     <div className="flex flex-col items-center gap-1">
-                      <div className="h-2 w-2 rounded-full border-2 border-secondary bg-white" />
-                      <div className="w-[1.5px] h-6 bg-gradient-to-b from-secondary to-muted-foreground/20 border-dashed border-l-2" />
+                      <div className="h-2 w-2 rounded-full border-2 border-brand-purple bg-white" />
+                      <div className="w-[1.5px] h-6 bg-gradient-to-b from-brand-purple to-muted-foreground/20 border-dashed border-l-2" />
                       <MapPin className="h-2 w-2 text-muted-foreground" />
                     </div>
                     <div className="flex-1 space-y-2">
@@ -263,7 +263,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
                       <Package className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                       <span className="text-[11px] font-bold truncate">{trip.packages.length} Pacotes</span>
                     </div>
-                    <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none text-[10px] font-black px-3 py-1.5 rounded-xl">
+                    <Badge className="bg-brand-purple/10 text-brand-purple border-none text-[10px] font-black px-3 py-1.5 rounded-xl">
                       R$ {trip.packages.reduce((acc, p) => acc + p.earnings, 0).toFixed(2)}
                     </Badge>
                   </div>
@@ -289,7 +289,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
             {activeTab === 'active' && (
               <Button 
                 onClick={() => setIsCreating(true)}
-                className="rounded-[1.5rem] h-12 px-8 bg-secondary font-black shadow-lg shadow-secondary/20 active:scale-95 transition-all"
+                className="rounded-[1.5rem] h-12 px-8 bg-brand-purple font-black shadow-lg shadow-brand-purple/20 active:scale-95 transition-all"
               >
                 Planejar Viagem
               </Button>
@@ -320,7 +320,7 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
 
       <div className="p-4 space-y-6">
         {/* Hero Card Premium */}
-        <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-secondary via-secondary/90 to-secondary/80 text-white shadow-xl shadow-secondary/20 overflow-hidden relative">
+        <Card className="rounded-[2.5rem] border-none bg-gradient-to-br from-brand-purple via-brand-purple/90 to-brand-purple/80 text-white shadow-xl shadow-brand-purple/20 overflow-hidden relative">
           <div className="absolute -top-10 -right-10 p-12 opacity-10">
             <Navigation className="h-48 w-48 rotate-12" />
           </div>
@@ -365,8 +365,8 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
           <div className="bg-white p-6 rounded-[2.5rem] border border-muted/50 shadow-sm space-y-6">
             <div className="flex gap-4">
               <div className="flex flex-col items-center pt-1">
-                <div className="h-4 w-4 rounded-full border-4 border-secondary bg-white ring-4 ring-secondary/5" />
-                <div className="w-[2px] h-12 bg-gradient-to-b from-secondary via-secondary/50 to-muted-foreground/20 border-dashed border-l-2" />
+                <div className="h-4 w-4 rounded-full border-4 border-brand-purple bg-white ring-4 ring-brand-purple/5" />
+                <div className="w-[2px] h-12 bg-gradient-to-b from-brand-purple via-brand-purple/50 to-muted-foreground/20 border-dashed border-l-2" />
                 <MapPin className="h-4 w-4 text-muted-foreground" />
               </div>
               <div className="flex-1 space-y-4">
@@ -389,7 +389,7 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
             <div>
               <h4 className="text-lg font-black tracking-tight">Cargas 📦</h4>
             </div>
-            <Badge className="bg-secondary/10 text-secondary border-none px-3 py-1 font-black text-[9px] mb-1">
+            <Badge className="bg-brand-purple/10 text-brand-purple border-none px-3 py-1 font-black text-[9px] mb-1">
               {trip.packages.length} VOLUMES
             </Badge>
           </div>
@@ -401,7 +401,7 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
                   <CardContent className="p-0">
                     <div className="p-5 flex justify-between items-center bg-muted/10 border-b border-muted/20">
                       <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-secondary">
+                        <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-brand-purple">
                           <Package className="h-5 w-5" />
                         </div>
                         <div>
@@ -410,7 +410,7 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="text-sm font-black text-secondary">R$ {pkg.earnings.toFixed(2)}</p>
+                        <p className="text-sm font-black text-brand-purple">R$ {pkg.earnings.toFixed(2)}</p>
                         <p className="text-[8px] font-black text-muted-foreground uppercase">Seu Lucro</p>
                       </div>
                     </div>
@@ -453,7 +453,7 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
 
         {/* Primary Actions */}
         <div className="space-y-3 pt-4">
-          <Button className="w-full h-14 rounded-[1.5rem] bg-secondary hover:bg-secondary/90 font-black text-sm gap-2 shadow-lg shadow-secondary/20 active:scale-95 transition-all">
+          <Button className="w-full h-14 rounded-[1.5rem] bg-brand-purple hover:bg-brand-purple/90 font-black text-sm gap-2 shadow-lg shadow-brand-purple/20 active:scale-95 transition-all">
             Iniciar Viagem <Truck className="h-5 w-5" />
           </Button>
           

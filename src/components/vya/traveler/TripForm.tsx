@@ -153,7 +153,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
           <span>{Math.round(progress)}% Concluído</span>
         </div>
         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
-          <div className="h-full bg-secondary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
+          <div className="h-full bg-brand-purple transition-all duration-500 ease-out" style={{ width: `${progress}%` }} />
         </div>
       </div>
 
@@ -179,12 +179,12 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     onClick={() => { setSearchQuery(""); setIsOriginSheetOpen(true); }}
                     className={cn(
                       "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all text-left active:scale-[0.98]",
-                      selectedOrigin ? "bg-secondary/5 border-secondary/30" : "bg-white border-muted hover:border-secondary/50"
+                      selectedOrigin ? "bg-brand-purple/5 border-brand-purple/30" : "bg-white border-muted hover:border-brand-purple/50"
                     )}
                   >
                     <div className={cn(
                       "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                      selectedOrigin ? "bg-secondary text-white" : "bg-muted text-muted-foreground"
+                      selectedOrigin ? "bg-brand-purple text-white" : "bg-muted text-muted-foreground"
                     )}>
                       <MapPin className="h-4 w-4" />
                     </div>
@@ -206,12 +206,12 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     onClick={() => { setSearchQuery(""); setIsDestSheetOpen(true); }}
                     className={cn(
                       "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all text-left active:scale-[0.98]",
-                      selectedDest ? "bg-secondary/5 border-secondary/30" : "bg-white border-muted hover:border-secondary/50"
+                      selectedDest ? "bg-brand-purple/5 border-brand-purple/30" : "bg-white border-muted hover:border-brand-purple/50"
                     )}
                   >
                     <div className={cn(
                       "h-8 w-8 rounded-full flex items-center justify-center shrink-0 transition-colors",
-                      selectedDest ? "bg-secondary text-white" : "bg-muted text-muted-foreground"
+                      selectedDest ? "bg-brand-purple text-white" : "bg-muted text-muted-foreground"
                     )}>
                       <Navigation className="h-4 w-4" />
                     </div>
@@ -227,12 +227,12 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               </div>
 
               {selectedRoute && (
-                <div className="p-5 bg-secondary/5 border-2 border-secondary/10 rounded-[2rem] animate-in slide-in-from-top-2 flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-2xl bg-secondary/10 flex items-center justify-center shrink-0">
-                    <Sparkles className="h-6 w-6 text-secondary fill-current" />
+                <div className="p-5 bg-brand-purple/5 border-2 border-brand-purple/10 rounded-[2rem] animate-in slide-in-from-top-2 flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-2xl bg-brand-purple/10 flex items-center justify-center shrink-0">
+                    <Sparkles className="h-6 w-6 text-brand-purple fill-current" />
                   </div>
                   <div>
-                    <span className="text-[9px] font-black text-secondary uppercase tracking-widest">Rota Oficial Identificada</span>
+                    <span className="text-[9px] font-black text-brand-purple uppercase tracking-widest">Rota Oficial Identificada</span>
                     <p className="text-sm font-black text-foreground mt-0.5">{selectedRoute.origin} → {selectedRoute.destination}</p>
                     <p className="text-[10px] text-muted-foreground font-bold uppercase mt-1">
                       {selectedRoute.distanceKm}km • Aprox. {Math.floor(selectedRoute.averageDurationMin / 60)}h {selectedRoute.averageDurationMin % 60}m
@@ -241,7 +241,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 </div>
               )}
 
-              <Button type="button" onClick={nextStep} disabled={!selectedRoute} className="w-full h-14 rounded-[1.5rem] bg-secondary font-black gap-2 shadow-lg shadow-secondary/20 active:scale-95 transition-all text-base mt-4">
+              <Button type="button" onClick={nextStep} disabled={!selectedRoute} className="w-full h-14 rounded-[1.5rem] bg-brand-purple font-black gap-2 shadow-lg shadow-brand-purple/20 active:scale-95 transition-all text-base mt-4">
                 Continuar <ChevronRight className="h-5 w-5" />
               </Button>
             </div>
@@ -260,7 +260,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Ex: Rodoviária, Posto Ipiranga BR-232" 
-                      className="pl-11 h-14 rounded-2xl bg-muted/20 border-dashed border-2 focus-visible:ring-secondary/20"
+                      className="pl-11 h-14 rounded-2xl bg-muted/20 border-dashed border-2 focus-visible:ring-brand-purple/20"
                       {...form.register("originMeetingPoint")}
                     />
                   </div>
@@ -271,7 +271,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     <Building2 className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input 
                       placeholder="Ex: Shopping Recife, Terminal de Integração" 
-                      className="pl-11 h-14 rounded-2xl bg-muted/20 border-dashed border-2 focus-visible:ring-secondary/20"
+                      className="pl-11 h-14 rounded-2xl bg-muted/20 border-dashed border-2 focus-visible:ring-brand-purple/20"
                       {...form.register("destinationMeetingPoint")}
                     />
                   </div>
@@ -279,7 +279,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
-                <Button type="button" onClick={nextStep} disabled={!form.watch("originMeetingPoint") || !form.watch("destinationMeetingPoint")} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Confirmar Locais</Button>
+                <Button type="button" onClick={nextStep} disabled={!form.watch("originMeetingPoint") || !form.watch("destinationMeetingPoint")} className="flex-1 h-14 rounded-2xl bg-brand-purple font-bold shadow-lg shadow-brand-purple/10">Confirmar Locais</Button>
               </div>
             </div>
           )}
@@ -299,7 +299,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                       key={i} 
                       className={cn(
                         "rounded-2xl border-none transition-all overflow-hidden cursor-pointer active:scale-[0.99]",
-                        isSelected ? "bg-secondary/10 shadow-sm" : "bg-muted/30"
+                        isSelected ? "bg-brand-purple/10 shadow-sm" : "bg-muted/30"
                       )}
                       onClick={() => toggleStop(stop)}
                     >
@@ -308,7 +308,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                           <div className="flex items-center gap-3">
                             <div className={cn(
                               "h-10 w-10 rounded-xl flex items-center justify-center transition-colors",
-                              isSelected ? "bg-secondary text-white" : "bg-white text-muted-foreground"
+                              isSelected ? "bg-brand-purple text-white" : "bg-white text-muted-foreground"
                             )}>
                               <Building2 className="h-5 w-5" />
                             </div>
@@ -317,16 +317,16 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                           <Checkbox 
                             checked={isSelected}
                             onCheckedChange={() => toggleStop(stop)}
-                            className="h-6 w-6 rounded-lg data-[state=checked]:bg-secondary border-secondary/30"
+                            className="h-6 w-6 rounded-lg data-[state=checked]:bg-brand-purple border-brand-purple/30"
                           />
                         </div>
                         
                         {isSelected && (
-                          <div className="animate-in slide-in-from-top-2 pt-2 border-t border-secondary/10">
-                            <FormLabel className="text-[9px] font-bold uppercase text-secondary mb-1 block">Ponto de Encontro em {stop}</FormLabel>
+                          <div className="animate-in slide-in-from-top-2 pt-2 border-t border-brand-purple/10">
+                            <FormLabel className="text-[9px] font-bold uppercase text-brand-purple mb-1 block">Ponto de Encontro em {stop}</FormLabel>
                             <Input 
                               placeholder="Qual o local de parada?" 
-                              className="h-11 rounded-xl bg-white border-dashed border-2 focus-visible:ring-secondary/20 text-xs"
+                              className="h-11 rounded-xl bg-white border-dashed border-2 focus-visible:ring-brand-purple/20 text-xs"
                               value={stopMeetingPoints[stop] || ""}
                               onChange={(e) => {
                                 e.stopPropagation();
@@ -344,7 +344,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
 
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
-                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Continuar</Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-brand-purple font-bold shadow-lg shadow-brand-purple/10">Continuar</Button>
               </div>
             </div>
           )}
@@ -359,21 +359,21 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 <div className="space-y-3">
                   <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Qual o dia?</FormLabel>
                   <div className="relative">
-                    <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary" />
+                    <CalendarIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-brand-purple" />
                     <Input type="date" className="pl-12 h-16 rounded-[1.5rem] bg-muted/30 border-none text-base font-bold" {...form.register("departureDate")} />
                   </div>
                 </div>
                 <div className="space-y-3">
                   <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Horário de Saída</FormLabel>
                   <div className="relative">
-                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-secondary" />
+                    <Clock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-brand-purple" />
                     <Input type="time" className="pl-12 h-16 rounded-[1.5rem] bg-muted/30 border-none text-2xl font-bold" {...form.register("departureTime")} />
                   </div>
                 </div>
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
-                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Continuar</Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-brand-purple font-bold shadow-lg shadow-brand-purple/10">Continuar</Button>
               </div>
             </div>
           )}
@@ -391,27 +391,27 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                       type="button" 
                       variant="outline" 
                       size="icon" 
-                      className="h-14 w-14 rounded-full border-4 border-secondary/10 hover:bg-secondary/5 transition-all active:scale-90"
+                      className="h-14 w-14 rounded-full border-4 border-brand-purple/10 hover:bg-brand-purple/5 transition-all active:scale-90"
                       onClick={() => form.setValue("maxPackages", Math.max(1, form.watch("maxPackages") - 1))}
                     >
-                      <X className="h-6 w-6 text-secondary rotate-45" />
+                      <X className="h-6 w-6 text-brand-purple rotate-45" />
                     </Button>
-                    <span className="text-7xl font-black text-secondary tracking-tighter">{form.watch("maxPackages")}</span>
+                    <span className="text-7xl font-black text-brand-purple tracking-tighter">{form.watch("maxPackages")}</span>
                     <Button 
                       type="button" 
                       variant="outline" 
                       size="icon" 
-                      className="h-14 w-14 rounded-full border-4 border-secondary/10 hover:bg-secondary/5 transition-all active:scale-90"
+                      className="h-14 w-14 rounded-full border-4 border-brand-purple/10 hover:bg-brand-purple/5 transition-all active:scale-90"
                       onClick={() => form.setValue("maxPackages", form.watch("maxPackages") + 1)}
                     >
-                      <Plus className="h-6 w-6 text-secondary" />
+                      <Plus className="h-6 w-6 text-brand-purple" />
                     </Button>
                   </div>
                 </CardContent>
               </Card>
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
-                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Continuar</Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-brand-purple font-bold shadow-lg shadow-brand-purple/10">Continuar</Button>
               </div>
             </div>
           )}
@@ -425,14 +425,14 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               <div className="space-y-4">
                 <Card className={cn(
                   "rounded-[2.5rem] border-2 transition-all p-8 space-y-4 cursor-pointer",
-                  form.watch("autoReserve") ? "border-secondary bg-secondary/5 shadow-md" : "border-muted bg-white"
+                  form.watch("autoReserve") ? "border-brand-purple bg-brand-purple/5 shadow-md" : "border-muted bg-white"
                 )} onClick={() => form.setValue("autoReserve", !form.watch("autoReserve"))}>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-3">
-                      <Zap className="h-6 w-6 text-secondary fill-current" />
+                      <Zap className="h-6 w-6 text-brand-purple fill-current" />
                       <h3 className="font-bold">Reserva Automática</h3>
                     </div>
-                    <Switch checked={form.watch("autoReserve")} onCheckedChange={(v) => form.setValue("autoReserve", v)} className="data-[state=checked]:bg-secondary" />
+                    <Switch checked={form.watch("autoReserve")} onCheckedChange={(v) => form.setValue("autoReserve", v)} className="data-[state=checked]:bg-brand-purple" />
                   </div>
                   <p className="text-xs text-muted-foreground">Mais praticidade! Os envios são atribuídos a você na hora, respeitando sua capacidade.</p>
                 </Card>
@@ -453,7 +453,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               </div>
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform"><ArrowLeft className="h-6 w-6" /></Button>
-                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-secondary font-bold shadow-lg shadow-secondary/10">Resumo Final</Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl bg-brand-purple font-bold shadow-lg shadow-brand-purple/10">Resumo Final</Button>
               </div>
             </div>
           )}
@@ -467,9 +467,9 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
               <Card className="rounded-[2.5rem] border-none bg-muted/30 p-8 space-y-6">
                 <div className="flex gap-5">
                   <div className="flex flex-col items-center gap-1 shrink-0 pt-1">
-                    <div className="h-3 w-3 rounded-full bg-secondary" />
-                    <div className="w-[1.5px] h-24 border-l-2 border-dashed border-secondary/40" />
-                    <div className="h-3 w-3 rounded-full bg-secondary" />
+                    <div className="h-3 w-3 rounded-full bg-brand-purple" />
+                    <div className="w-[1.5px] h-24 border-l-2 border-dashed border-brand-purple/40" />
+                    <div className="h-3 w-3 rounded-full bg-brand-purple" />
                   </div>
                   <div className="flex-1 space-y-8">
                     <div>
@@ -479,10 +479,10 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     </div>
                     {selectedStops.length > 0 && (
                       <div>
-                        <p className="text-[9px] font-bold text-secondary uppercase tracking-widest mb-1">Paradas Selecionadas</p>
+                        <p className="text-[9px] font-bold text-brand-purple uppercase tracking-widest mb-1">Paradas Selecionadas</p>
                         <div className="flex flex-wrap gap-2">
                           {selectedStops.map((s, i) => (
-                            <Badge key={i} variant="outline" className="bg-white/50 border-secondary/20 text-secondary text-[8px]">{s}</Badge>
+                            <Badge key={i} variant="outline" className="bg-white/50 border-brand-purple/20 text-brand-purple text-[8px]">{s}</Badge>
                           ))}
                         </div>
                       </div>
@@ -492,11 +492,11 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                 <div className="pt-6 border-t border-muted-foreground/10 flex justify-between items-center text-xs font-bold uppercase tracking-widest">
                   <div className="space-y-1">
                     <span className="text-muted-foreground block">Saída</span>
-                    <span className="text-secondary">{form.watch("departureDate")} • {form.watch("departureTime")}</span>
+                    <span className="text-brand-purple">{form.watch("departureDate")} • {form.watch("departureTime")}</span>
                   </div>
                   <div className="text-right space-y-1">
                     <span className="text-muted-foreground block">Vagas</span>
-                    <span className="text-secondary">{form.watch("maxPackages")} Pacotes</span>
+                    <span className="text-brand-purple">{form.watch("maxPackages")} Pacotes</span>
                   </div>
                 </div>
               </Card>
@@ -548,7 +548,7 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                       setIsSubmitting(false);
                     }
                   }}
-                  className="w-full h-16 rounded-[1.5rem] bg-secondary text-lg font-bold gap-3 shadow-xl shadow-secondary/20 transition-transform active:scale-95"
+                  className="w-full h-16 rounded-[1.5rem] bg-brand-purple text-lg font-bold gap-3 shadow-xl shadow-brand-purple/20 transition-transform active:scale-95"
                 >
                   {isSubmitting ? <><Loader2 className="h-6 w-6 animate-spin" /> Publicando...</> : <>Oferecer Carona <Check className="h-6 w-6" /></>}
                 </Button>
@@ -587,11 +587,11 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     className="w-full text-left p-4 rounded-2xl hover:bg-muted/50 active:bg-muted transition-colors flex items-center gap-4 group" 
                     onClick={() => handleSelectOrigin(city)}
                   >
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-secondary/10 group-hover:text-secondary transition-colors">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-brand-purple/10 group-hover:text-brand-purple transition-colors">
                       <MapPin className="h-5 w-5" />
                     </div>
                     <span className="text-base font-bold flex-1">{city}</span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-secondary transition-colors" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-brand-purple transition-colors" />
                   </button>
                 ))}
               </div>
@@ -637,11 +637,11 @@ export function TripForm({ onComplete }: { onComplete: () => void }) {
                     className="w-full text-left p-4 rounded-2xl hover:bg-muted/50 active:bg-muted transition-colors flex items-center gap-4 group" 
                     onClick={() => handleSelectDest(city)}
                   >
-                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-secondary/10 group-hover:text-secondary transition-colors">
+                    <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center shrink-0 group-hover:bg-brand-purple/10 group-hover:text-brand-purple transition-colors">
                       <Navigation className="h-5 w-5" />
                     </div>
                     <span className="text-base font-bold flex-1">{city}</span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-secondary transition-colors" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-brand-purple transition-colors" />
                   </button>
                 ))}
               </div>

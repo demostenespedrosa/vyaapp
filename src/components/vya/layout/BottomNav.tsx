@@ -41,13 +41,13 @@ export function BottomNav({ activeTab, onTabChange, mode }: BottomNavProps) {
               onClick={() => onTabChange(tab.id)}
               className={cn(
                 "flex flex-col items-center justify-center gap-1 transition-all active:scale-90 relative px-2",
-                isActive ? (mode === 'sender' ? "text-primary" : "text-secondary") : "text-muted-foreground"
+                isActive ? (mode === 'sender' ? "text-primary" : "text-brand-purple") : "text-muted-foreground"
               )}
             >
-              <Icon className={cn("h-6 w-6", isActive && (mode === 'sender' ? "fill-primary/10" : "fill-secondary/10"))} />
+              <Icon className={cn("h-6 w-6", isActive && (mode === 'sender' ? "fill-primary/10" : "fill-brand-purple/10"))} />
               <span className="text-[10px] font-bold uppercase tracking-wider">{tab.label}</span>
               {isActive && (
-                <span className={cn("h-1 w-1 rounded-full absolute -bottom-1", mode === 'sender' ? "bg-primary" : "bg-secondary")} />
+                <span className={cn("h-1 w-1 rounded-full absolute -bottom-1", mode === 'sender' ? "bg-primary" : "bg-brand-purple")} />
               )}
             </button>
           );

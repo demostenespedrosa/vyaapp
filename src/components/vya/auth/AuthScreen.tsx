@@ -112,7 +112,7 @@ export function AuthScreen({ onLoginSuccess }: AuthScreenProps) {
       <div className="flex-1 flex flex-col justify-center space-y-10 pb-10">
         {/* Header / Logo */}
         <div className="space-y-6 text-center mt-8">
-          <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-primary shadow-2xl shadow-primary/30 text-white mx-auto">
+          <div className="inline-flex h-20 w-20 items-center justify-center rounded-[2rem] bg-gradient-to-br from-primary to-brand-purple shadow-2xl shadow-primary/30 text-white mx-auto">
             <Box className="h-10 w-10" />
           </div>
           <div className="space-y-2">

@@ -112,7 +112,7 @@ export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onPr
                 <div className="h-28 w-28 rounded-full bg-primary/10 mx-auto flex items-center justify-center text-primary text-4xl font-bold border-4 border-white shadow-xl">
                   {initials}
                 </div>
-                <div className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-secondary border-4 border-white flex items-center justify-center text-white shadow-md">
+                <div className={cn("absolute bottom-1 right-1 h-8 w-8 rounded-full border-4 border-white flex items-center justify-center text-white shadow-md", mode === 'traveler' ? 'bg-brand-purple' : 'bg-primary')}>
                   ✓
                 </div>
               </div>
@@ -140,9 +140,9 @@ export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onPr
                       <Switch 
                         checked={mode === 'traveler'} 
                         onCheckedChange={(checked) => onModeChange(checked ? 'traveler' : 'sender')}
-                        className="data-[state=checked]:bg-secondary"
+                        className="data-[state=checked]:bg-brand-purple"
                       />
-                      <span className={cn("text-[10px] font-bold uppercase transition-colors", mode === 'traveler' ? 'text-secondary' : 'text-muted-foreground')}>Viajar</span>
+                      <span className={cn("text-[10px] font-bold uppercase transition-colors", mode === 'traveler' ? 'text-brand-purple' : 'text-muted-foreground')}>Viajar</span>
                     </div>
                   </div>
                 </CardContent>
@@ -216,7 +216,7 @@ export function ProfileView({ mode, onModeChange, onLogout, initialProfile, onPr
 
               <button
                 onClick={() => setActiveScreen('referral')}
-                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-secondary/10 rounded-3xl active:scale-[0.98] transition-all hover:from-primary/20 hover:to-secondary/20 border border-primary/10"
+                className="w-full flex items-center justify-between p-4 bg-gradient-to-r from-primary/10 to-brand-purple/10 rounded-3xl active:scale-[0.98] transition-all hover:from-primary/20 hover:to-brand-purple/20 border border-primary/10"
               >
                 <div className="flex items-center gap-4">
                   <div className="p-2.5 rounded-2xl bg-primary text-white">

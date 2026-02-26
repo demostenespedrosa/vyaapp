@@ -34,7 +34,7 @@ export function Navbar({ mode, onToggle }: NavbarProps) {
               checked={mode === 'traveler'} 
               onCheckedChange={(checked) => onToggle(checked ? 'traveler' : 'sender')}
             />
-            <Label htmlFor="mode-toggle" className={`text-xs font-bold transition-colors ${mode === 'traveler' ? 'text-secondary' : 'text-muted-foreground'}`}>
+            <Label htmlFor="mode-toggle" className={`text-xs font-bold transition-colors ${mode === 'traveler' ? 'text-brand-purple' : 'text-muted-foreground'}`}>
               Viajante
             </Label>
           </div>

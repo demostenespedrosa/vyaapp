@@ -263,7 +263,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
             {[
               { icon: Search, label: "Rastrear", color: "text-blue-500", bg: "bg-blue-50" },
               { icon: Calculator, label: "Simular", color: "text-orange-500", bg: "bg-orange-50" },
-              { icon: History, label: "Histórico", color: "text-purple-500", bg: "bg-purple-50" },
+              { icon: History, label: "Histórico", color: "text-brand-purple", bg: "bg-brand-purple/10" },
               { icon: HelpCircle, label: "Ajuda", color: "text-green-500", bg: "bg-green-50" },
             ].map((item, i) => (
               <button key={i} className="flex flex-col items-center gap-2 active:scale-90 transition-transform group">
@@ -277,9 +277,9 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
 
           {/* Banner Promocional / Dica */}
           <div className="pt-4">
-            <Card className="rounded-[2rem] border-none bg-gradient-to-r from-secondary/10 to-primary/5 p-6 flex items-center gap-4 relative overflow-hidden">
+            <Card className="rounded-[2rem] border-none bg-gradient-to-r from-brand-pink/15 to-primary/5 p-6 flex items-center gap-4 relative overflow-hidden">
               <div className="h-12 w-12 rounded-full bg-white shadow-sm flex items-center justify-center shrink-0">
-                <Sparkles className="h-6 w-6 text-secondary fill-current" />
+                <Sparkles className="h-6 w-6 text-brand-pink fill-current" />
               </div>
               <div className="space-y-1">
                 <h4 className="text-sm font-black tracking-tight">Indique e Ganhe</h4>
@@ -295,7 +295,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
         <section className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
           
           {/* Próxima Viagem Planejada */}
-          <Card className="rounded-[2.5rem] border-none bg-secondary text-white shadow-xl shadow-secondary/20 overflow-hidden relative mx-1">
+          <Card className="rounded-[2.5rem] border-none bg-brand-purple text-white shadow-xl shadow-brand-purple/20 overflow-hidden relative mx-1">
             <div className="absolute -right-6 -top-6 p-8 opacity-10">
               <Route className="h-32 w-32 rotate-12 fill-current" />
             </div>
@@ -356,7 +356,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
               { icon: Route, label: "Rotas", color: "text-blue-500", bg: "bg-blue-50" },
               { icon: Wallet, label: "Ganhos", color: "text-green-500", bg: "bg-green-50" },
               { icon: Truck, label: "Veículo", color: "text-orange-500", bg: "bg-orange-50" },
-              { icon: HelpCircle, label: "Suporte", color: "text-purple-500", bg: "bg-purple-50" },
+              { icon: HelpCircle, label: "Suporte", color: "text-brand-purple", bg: "bg-brand-purple/10" },
             ].map((item, i) => (
               <button key={i} className="flex flex-col items-center gap-2 active:scale-90 transition-transform group">
                 <div className={cn("h-14 w-14 rounded-[1.2rem] flex items-center justify-center shadow-sm group-hover:shadow-md transition-all", item.bg, item.color)}>
@@ -374,7 +374,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                 <h3 className="text-xl font-black tracking-tighter">Pacotes Compatíveis 📦</h3>
                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mt-0.5">Para sua viagem de hoje</p>
               </div>
-              <Badge variant="secondary" className="bg-secondary/10 text-secondary border-none px-3 py-1 font-black text-[9px] mb-1">
+              <Badge variant="secondary" className="bg-brand-purple/10 text-brand-purple border-none px-3 py-1 font-black text-[9px] mb-1">
                 {availablePackages.length} MATCHES
               </Badge>
             </div>
@@ -382,23 +382,23 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
             {availablePackages.length > 0 ? (
               <div className="space-y-4">
                 {availablePackages.map((pkg) => (
-                  <Card key={pkg.id} className="rounded-[2.5rem] border-2 border-secondary/10 shadow-lg hover:shadow-xl bg-white overflow-hidden active:scale-[0.98] active:bg-muted/30 transition-all duration-300 cursor-pointer">
+                  <Card key={pkg.id} className="rounded-[2.5rem] border-2 border-brand-purple/10 shadow-lg hover:shadow-xl bg-white overflow-hidden active:scale-[0.98] active:bg-muted/30 transition-all duration-300 cursor-pointer">
                     <CardContent className="p-0">
                       {/* Header do Card de Oportunidade */}
-                      <div className="bg-secondary/5 px-6 py-4 flex justify-between items-center border-b border-secondary/10">
+                      <div className="bg-brand-purple/5 px-6 py-4 flex justify-between items-center border-b border-brand-purple/10">
                         <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-secondary">
+                          <div className="h-10 w-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-brand-purple">
                             <Coins className="h-5 w-5" />
                           </div>
                           <div>
-                            <p className="text-[9px] font-black text-secondary uppercase tracking-widest opacity-80">Ganho Líquido</p>
-                            <h4 className="text-xl font-black text-secondary tracking-tight">R$ {pkg.earnings.toFixed(2)}</h4>
+                            <p className="text-[9px] font-black text-brand-purple uppercase tracking-widest opacity-80">Ganho Líquido</p>
+                            <h4 className="text-xl font-black text-brand-purple tracking-tight">R$ {pkg.earnings.toFixed(2)}</h4>
                           </div>
                         </div>
                         <div className="text-right">
                           <Badge className={cn(
                             "border-none text-[8px] font-black px-2.5 py-1 rounded-full",
-                            pkg.urgency === 'high' ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-secondary/20 text-secondary'
+                            pkg.urgency === 'high' ? 'bg-red-500 text-white shadow-md shadow-red-200' : 'bg-brand-purple/20 text-brand-purple'
                           )}>
                             {pkg.urgency === 'high' ? 'IMEDIATO' : 'NORMAL'}
                           </Badge>
@@ -412,8 +412,8 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                       <div className="p-6 space-y-5">
                         <div className="flex items-center gap-4">
                           <div className="flex flex-col items-center gap-1">
-                            <div className="h-3 w-3 rounded-full border-2 border-secondary bg-white" />
-                            <div className="w-[2px] h-8 bg-gradient-to-b from-secondary to-muted-foreground/20 border-dashed border-l-2" />
+                            <div className="h-3 w-3 rounded-full border-2 border-brand-purple bg-white" />
+                            <div className="w-[2px] h-8 bg-gradient-to-b from-brand-purple to-muted-foreground/20 border-dashed border-l-2" />
                             <MapPin className="h-3 w-3 text-muted-foreground" />
                           </div>
                           <div className="flex-1 space-y-3">
@@ -433,7 +433,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                         </div>
 
                         {/* Botão de Aceite */}
-                        <Button className="w-full h-14 rounded-[1.2rem] bg-secondary hover:bg-secondary/90 font-black text-sm gap-2 shadow-lg shadow-secondary/20 active:scale-95 transition-all">
+                        <Button className="w-full h-14 rounded-[1.2rem] bg-brand-purple hover:bg-brand-purple/90 font-black text-sm gap-2 shadow-lg shadow-brand-purple/20 active:scale-95 transition-all">
                           Aceitar Pacote <ChevronRight className="h-4 w-4" />
                         </Button>
                       </div>
