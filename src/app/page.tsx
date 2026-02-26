@@ -179,7 +179,7 @@ function AppShell() {
         </div>
       </main>
 
-      {mode !== "admin" && (
+      {mode !== "admin" && !showOnboarding && (
         <BottomNav
           mode={mode as "sender" | "traveler"}
           activeTab={activeTab}
