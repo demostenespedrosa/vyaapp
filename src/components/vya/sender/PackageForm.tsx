@@ -21,7 +21,6 @@ import {
   MapPin, 
   ChevronRight, 
   ArrowLeft,
-  Package as PackageIcon,
   ShieldCheck,
   CreditCard,
   X,
@@ -50,6 +49,107 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
+
+// ---------------------------------------------------------------------------
+// Dados + ilustrações SVG para cada tamanho de pacote
+// ---------------------------------------------------------------------------
+
+const SIZE_OPTS: Array<{
+  key: SizeKey;
+  headline: string;
+  hint: string;
+  weight: string;
+  examples: string;
+  border: string;
+  bg: string;
+  textColor: string;
+  illustration: React.ReactNode;
+}> = [
+  {
+    key: 'P',
+    headline: 'Pequeno',
+    hint: 'Cabe numa mochila',
+    weight: 'Até 3 kg',
+    examples: 'Celulares, documentos, roupas dobradas',
+    border: 'border-primary',
+    bg: 'bg-primary/10',
+    textColor: 'text-primary',
+    illustration: (
+      <svg viewBox="0 0 80 66" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        {/* Alca */}
+        <path d="M28 21 C28 12 52 12 52 21" stroke="#FE6344" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+        {/* Corpo mochila */}
+        <rect x="13" y="21" width="54" height="36" rx="13" fill="#FFF0EC" stroke="#FE6344" strokeWidth="2"/>
+        {/* Bolso frontal */}
+        <rect x="22" y="34" width="36" height="18" rx="8" fill="white" stroke="#FE6344" strokeWidth="1.5"/>
+        {/* Caixinha dentro */}
+        <rect x="30" y="38" width="20" height="11" rx="3" fill="#FE6344" fillOpacity="0.35"/>
+        <line x1="30" y1="43.5" x2="50" y2="43.5" stroke="#FE6344" strokeWidth="1" strokeOpacity="0.6"/>
+        {/* Zipper */}
+        <circle cx="40" cy="34" r="2.5" fill="#FE6344"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'M',
+    headline: 'Médio',
+    hint: 'Cabe em uma mala de viagem',
+    weight: 'Até 10 kg',
+    examples: 'Caixas de sapato, sacolas de roupas',
+    border: 'border-brand-purple',
+    bg: 'bg-brand-purple/10',
+    textColor: 'text-brand-purple',
+    illustration: (
+      <svg viewBox="0 0 80 66" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        {/* Alça superior */}
+        <path d="M30 18 L30 12 Q40 8 50 12 L50 18" stroke="#875be3" strokeWidth="2.5" strokeLinecap="round" fill="none"/>
+        {/* Corpo mala */}
+        <rect x="9" y="18" width="62" height="40" rx="8" fill="#F0EBFC" stroke="#875be3" strokeWidth="2"/>
+        {/* Linha divisora central */}
+        <line x1="9" y1="36" x2="71" y2="36" stroke="#875be3" strokeWidth="1.5" strokeDasharray="5 3"/>
+        {/* Caixa representando conteudo */}
+        <rect x="19" y="22" width="42" height="12" rx="3" fill="#875be3" fillOpacity="0.2"/>
+        <rect x="19" y="39" width="42" height="14" rx="3" fill="#875be3" fillOpacity="0.15"/>
+        {/* Fechadura */}
+        <rect x="35" y="32" width="10" height="7" rx="2.5" fill="#875be3" fillOpacity="0.55"/>
+        {/* Rodinhas */}
+        <rect x="17" y="57" width="11" height="5" rx="2.5" fill="#875be3"/>
+        <rect x="52" y="57" width="11" height="5" rx="2.5" fill="#875be3"/>
+      </svg>
+    ),
+  },
+  {
+    key: 'G',
+    headline: 'Grande',
+    hint: 'Cabe no porta-malas de um carro',
+    weight: 'Até 30 kg',
+    examples: 'Fardos, caixas volumosas',
+    border: 'border-slate-500',
+    bg: 'bg-slate-100',
+    textColor: 'text-slate-700',
+    illustration: (
+      <svg viewBox="0 0 80 66" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-full h-full">
+        {/* Carro — lataria */}
+        <path d="M4 37 L4 51 Q4 57 10 57 L70 57 Q76 57 76 51 L76 37 L58 37 L50 25 L26 25 L18 37 Z" fill="#F1F5F9" stroke="#475569" strokeWidth="2"/>
+        {/* Cabine/teto */}
+        <path d="M26 25 L32 16 L54 16 L60 25 Z" fill="#E2E8F0" stroke="#475569" strokeWidth="1.5"/>
+        {/* Para-brisa */}
+        <path d="M33 17 L37 25 L55 25 L58 17 Z" fill="white" fillOpacity="0.75"/>
+        {/* Tampa porta-malas aberta */}
+        <path d="M58 37 Q69 27 71 18" stroke="#475569" strokeWidth="2" strokeLinecap="round"/>
+        {/* Caixa grande no porta-malas */}
+        <rect x="49" y="30" width="25" height="18" rx="3" fill="#475569" fillOpacity="0.28"/>
+        <line x1="49" y1="39" x2="74" y2="39" stroke="#475569" strokeWidth="1" strokeOpacity="0.5"/>
+        <line x1="61.5" y1="30" x2="61.5" y2="48" stroke="#475569" strokeWidth="1" strokeOpacity="0.4"/>
+        {/* Rodas */}
+        <circle cx="20" cy="57" r="7.5" fill="#475569"/>
+        <circle cx="20" cy="57" r="3.5" fill="#F1F5F9"/>
+        <circle cx="62" cy="57" r="7.5" fill="#475569"/>
+        <circle cx="62" cy="57" r="3.5" fill="#F1F5F9"/>
+      </svg>
+    ),
+  },
+];
 
 export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
@@ -340,35 +440,72 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
               />
 
               <div className="space-y-3">
-                <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Tamanho do Pacote</FormLabel>
-                <div className="grid grid-cols-3 gap-3">
-                  {(Object.keys(SIZES) as SizeKey[]).map((key) => {
-                    const size = SIZES[key];
+                <div className="px-1">
+                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Tamanho do Pacote
+                  </FormLabel>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    Escolha com calma — isso ajuda o viajante a confirmar que cabe 😊
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {SIZE_OPTS.map(({ key, headline, hint, weight, examples, border, bg, textColor, illustration }) => {
                     const isSelected = form.watch("size") === key;
                     const isAiSuggested = aiSuggestion?.suggestedSize === key;
-
                     return (
                       <button
                         key={key}
                         type="button"
                         onClick={() => form.setValue("size", key)}
                         className={cn(
-                          "relative flex flex-col items-center justify-center p-4 rounded-[2rem] border-2 transition-all active:scale-95",
-                          isSelected ? "border-primary bg-primary/5 shadow-inner" : "border-muted bg-muted/20 grayscale opacity-60"
+                          "relative flex items-center rounded-[1.75rem] border-2 overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full",
+                          isSelected
+                            ? `${border} shadow-md bg-white`
+                            : "border-muted/40 bg-muted/10 opacity-60 hover:opacity-80"
                         )}
                       >
-                        {isAiSuggested && (
-                          <div className="absolute -top-2 bg-primary text-white text-[8px] font-bold px-2 py-0.5 rounded-full shadow-sm animate-bounce">
-                            SUGERIDO
+                        {/* Painel ilustração */}
+                        <div
+                          className={cn(
+                            "w-24 h-24 flex-shrink-0 flex items-center justify-center p-2.5 transition-colors",
+                            isSelected ? bg : "bg-muted/20"
+                          )}
+                        >
+                          {illustration}
+                        </div>
+
+                        {/* Texto */}
+                        <div className="flex-1 px-4 py-3 space-y-0.5">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-[15px] font-black text-foreground leading-tight">{headline}</span>
+                            {isAiSuggested && (
+                              <span className="text-[8px] font-black bg-primary text-white px-2 py-0.5 rounded-full animate-bounce">
+                                IA SUGERIU
+                              </span>
+                            )}
                           </div>
-                        )}
-                        <PackageIcon className={cn("mb-2", isSelected ? "text-primary" : "text-muted-foreground")} />
-                        <span className="text-xs font-bold">{size.label}</span>
-                        <span className="text-[9px] text-muted-foreground mt-0.5">{size.weight}</span>
+                          <p className={cn("text-xs font-bold", isSelected ? textColor : "text-muted-foreground")}>
+                            {hint}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">
+                            {weight} &middot; {examples}
+                          </p>
+                        </div>
+
+                        {/* Indicador selecionado */}
+                        <div className="pr-4 flex-shrink-0">
+                          {isSelected ? (
+                            <CheckCircle2 className={cn("h-5 w-5", textColor)} />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-muted" />
+                          )}
+                        </div>
                       </button>
                     );
                   })}
                 </div>
+
                 {aiSuggestion?.restrictions && (
                   <p className="text-[10px] text-destructive font-medium px-1 flex items-center gap-1">
                     ⚠️ {aiSuggestion.restrictions}
