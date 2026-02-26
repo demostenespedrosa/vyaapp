@@ -1567,7 +1567,7 @@ export function AdminDashboard({ onLogout }: AdminDashboardProps) {
                 onChange={(e) => setPlatformFeePercent(Number(e.target.value))}
                 className="h-14 rounded-[1.2rem] bg-slate-50 border-slate-200 font-black text-lg"
               />
-              <p className="text-xs text-slate-500 font-medium">Porcentagem adicionada ao frete base cobrada do remetente.</p>
+              <p className="text-xs text-slate-500 font-medium">Porcentagem descontada do frete base no repasse ao viajante. O remetente sempre paga o preço base.</p>
             </div>
             <div className="space-y-3">
               <label className="text-sm font-bold text-slate-700">Valor Mínimo de Saque (R$)</label>

@@ -241,9 +241,9 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       const base = pricingConfig && pricingConfig[values.size]
         ? Number(pricingConfig[values.size][band])
         : calculatePrice(values.size as SizeKey, calculatedDistance);
-      const freightWithFee = base * (1 + platformFeePercent / 100);
       const insurance = Number(pricingConfig?.[values.size as SizeKey]?.insurance ?? 9.90);
-      const finalTotal = freightWithFee + (withInsurance ? insurance : 0);
+      // Remetente paga o preço base; a taxa da plataforma é descontada no repasse ao viajante
+      const finalTotal = base + (withInsurance ? insurance : 0);
 
       const { error } = await supabase.from('packages').insert({
         sender_id: user.id,
@@ -258,7 +258,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
         recipient_name: values.recipientName,
         recipient_phone: values.recipientPhone,
         recipient_cpf: values.recipientCpf,
-        price: finalTotal,
+        price: base, // Salva o frete base; a taxa da plataforma é descontada no repasse ao viajante
         pickup_code: generateCode(),
         delivery_code: generateCode(),
         status: 'searching',
@@ -287,13 +287,12 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     : 'acima de 300 km';
 
   // Cálculos de preço reativos ao tamanho e distância
+  // Remetente paga o frete base (sem taxa); a taxa é descontada no repasse ao viajante
   const baseFreight = pricingConfig && pricingConfig[selectedSize]
     ? Number(pricingConfig[selectedSize][distanceBand])
     : calculatePrice(selectedSize, calculatedDistance);
-  // Frete cobrado do remetente: base + % da plataforma embutida
-  const freightWithFee = baseFreight * (1 + platformFeePercent / 100);
   const insurancePrice = Number(pricingConfig?.[selectedSize]?.insurance ?? 9.90);
-  const finalTotal = freightWithFee + (withInsurance ? insurancePrice : 0);
+  const finalTotal = baseFreight + (withInsurance ? insurancePrice : 0);
 
   return (
     <div className="space-y-6 pb-20 page-transition">
@@ -687,7 +686,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                           Pacote {selectedSize} · {Math.round(calculatedDistance)} km ({distanceBandLabel})
                         </p>
                       </div>
-                      <span className="text-sm font-bold">R$ {freightWithFee.toFixed(2)}</span>
+                      <span className="text-sm font-bold">R$ {baseFreight.toFixed(2)}</span>
                     </div>
 
                     {/* Linha seguro */}

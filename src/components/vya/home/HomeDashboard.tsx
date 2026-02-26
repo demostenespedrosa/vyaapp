@@ -77,7 +77,7 @@ function relativeTime(iso: string) {
 
 export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   // Perfil vem do contexto global — sem fetch extra
-  const { profile, userId } = useAppContext();
+  const { profile, userId, configs } = useAppContext();
 
   const [activeShipment, setActiveShipment] = useState<ActiveShipment | null>(null);
   const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
@@ -162,7 +162,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
           .eq('status', 'delivered')
           .gte('updated_at', `${today}T00:00:00`);
         if (todayPkgs) {
-          newTodayEarnings = todayPkgs.reduce((acc, p) => acc + (p.price * 0.8), 0);
+          newTodayEarnings = todayPkgs.reduce((acc, p) => acc + (p.price * (1 - configs.platformFeePercent / 100)), 0);
           newTodayDeliveries = todayPkgs.length;
         }
 

@@ -52,7 +52,7 @@ interface TravelerTrip {
 }
 
 export function TravelerView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
-  const { userId } = useAppContext();
+  const { userId, configs } = useAppContext();
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [selectedTrip, setSelectedTrip] = useState<TravelerTrip | null>(null);
@@ -74,7 +74,8 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
         item: pkg.description,
         sender: pkg.profiles?.full_name || 'Remetente',
         status: pkg.status,
-        earnings: pkg.price * 0.8
+        // Ganho do viajante = frete base descontada a taxa da plataforma
+        earnings: pkg.price * (1 - configs.platformFeePercent / 100)
       })) || []
     }));
 
@@ -99,7 +100,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
     } finally {
       setIsLoading(false);
     }
-  }, [userId, CACHE_KEY]);
+  }, [userId, CACHE_KEY, configs.platformFeePercent]);
 
   useEffect(() => {
     if (!userId) return;
