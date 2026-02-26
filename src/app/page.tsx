@@ -9,85 +9,40 @@ import { AdminDashboard } from "@/components/vya/admin/AdminDashboard";
 import { WalletDashboard } from "@/components/vya/wallet/WalletDashboard";
 import { ProfileView } from "@/components/vya/profile/ProfileView";
 import { AuthScreen } from "@/components/vya/auth/AuthScreen";
-import { supabase } from "@/lib/supabase";
 import { AppProvider, useAppContext } from "@/contexts/AppContext";
 import { Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
-// AppShell — componente interno que pode usar o AppContext
+// AppShell — apenas consome o contexto, sem nenhum listener próprio de auth
 // ---------------------------------------------------------------------------
 
 function AppShell() {
-  const { profile } = useAppContext();
+  const {
+    isLoadingAuth,
+    isLoggedIn,
+    mode,
+    setMode,
+    handleLogout,
+    profile,
+  } = useAppContext();
 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState("home");
-  const [mode, setMode] = useState<"sender" | "traveler" | "admin">("sender");
   const [startCreating, setStartCreating] = useState(false);
   const mainRef = useRef<HTMLElement>(null);
 
+  // Rola para o topo ao mudar aba
   useEffect(() => {
     if (mainRef.current) mainRef.current.scrollTop = 0;
   }, [activeTab]);
 
-  useEffect(() => {
-    // Timeout de segurança: se nada responder em 8s, libera a tela de login
-    const safetyTimer = setTimeout(() => {
-      setIsLoadingAuth(false);
-    }, 8000);
-
-    // Supabase v2: onAuthStateChange já dispara INITIAL_SESSION na montagem
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      clearTimeout(safetyTimer);
-      if (session?.user) {
-        await handleLoginSuccess(session.user);
-      } else {
-        setIsLoggedIn(false);
-        setIsLoadingAuth(false);
-      }
-    });
-
-    return () => {
-      clearTimeout(safetyTimer);
-      subscription.unsubscribe();
-    };
-  }, []);
-
+  // Ajusta aba ativa ao trocar de modo
   useEffect(() => {
     if (mode === "sender" && (activeTab === "action" || activeTab === "wallet")) {
       setActiveTab("home");
     }
     setStartCreating(false);
   }, [mode]);
-
-  // Só busca role — perfil completo já é cacheado e atualizado pelo AppContext
-  const handleLoginSuccess = async (user: any) => {
-    let role = "cliente";
-
-    try {
-      const { data } = await supabase
-        .from("profiles")
-        .select("role")
-        .eq("id", user.id)
-        .single();
-
-      if (data?.role) {
-        role = String(data.role).trim().toLowerCase();
-      } else if (user.user_metadata?.role) {
-        role = String(user.user_metadata.role).trim().toLowerCase();
-      }
-    } catch (err) {
-      console.error("Erro ao buscar role:", err);
-    } finally {
-      setMode(role === "admin" ? "admin" : "sender");
-      setIsLoggedIn(true);
-      setIsLoadingAuth(false);
-    }
-  };
 
   const handleTabChange = (tab: string) => {
     setActiveTab(tab);
@@ -101,14 +56,12 @@ function AppShell() {
     setActiveTab(mode === "sender" ? "activity" : "action");
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setIsLoggedIn(false);
+  const handleLogoutAndReset = async () => {
+    await handleLogout();
     setActiveTab("home");
-    setMode("sender");
   };
 
-  // Converte o UserProfile do contexto para o formato que ProfileView espera
+  // Converte UserProfile do contexto para o formato de ProfileView
   const profileForView = profile
     ? {
         id: profile.id,
@@ -122,7 +75,7 @@ function AppShell() {
 
   const renderContent = () => {
     if (mode === "admin") {
-      return <AdminDashboard onLogout={handleLogout} />;
+      return <AdminDashboard onLogout={handleLogoutAndReset} />;
     }
 
     switch (activeTab) {
@@ -147,7 +100,7 @@ function AppShell() {
           <ProfileView
             mode={mode as "sender" | "traveler"}
             onModeChange={setMode}
-            onLogout={handleLogout}
+            onLogout={handleLogoutAndReset}
             initialProfile={profileForView}
             onProfileUpdate={() => {
               /* AppContext atualiza via realtime */
@@ -159,6 +112,7 @@ function AppShell() {
     }
   };
 
+  // Tela de loading
   if (isLoadingAuth) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
@@ -169,8 +123,9 @@ function AppShell() {
     );
   }
 
+  // onLoginSuccess é no-op: AppContext escuta onAuthStateChange automaticamente
   if (!isLoggedIn) {
-    return <AuthScreen onLoginSuccess={handleLoginSuccess} />;
+    return <AuthScreen onLoginSuccess={() => {}} />;
   }
 
   return (
@@ -204,7 +159,7 @@ function AppShell() {
 }
 
 // ---------------------------------------------------------------------------
-// Home — wrapper com o AppProvider (contexto global de sessão)
+// Home — wrapper raiz com AppProvider (contexto global de auth + dados)
 // ---------------------------------------------------------------------------
 
 export default function Home() {

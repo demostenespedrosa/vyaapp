@@ -1,13 +1,14 @@
 "use client";
 
-/**
- * AppContext — cache global de dados do usuário e configurações.
- *
- * Garante que perfil e configs sejam buscados UMA ÚNICA VEZ por sessão.
- * Mudanças chegam via Supabase Realtime (sem polling, sem refetch desnecessário).
- */
-
-import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  ReactNode,
+} from "react";
 import { supabase } from "@/lib/supabase";
 
 // ---------------------------------------------------------------------------
@@ -32,50 +33,57 @@ export interface AppConfigs {
 }
 
 interface AppContextValue {
+  // Auth
+  isLoadingAuth: boolean;
+  isLoggedIn: boolean;
   userId: string | null;
+  mode: "sender" | "traveler" | "admin";
+  setMode: (m: "sender" | "traveler" | "admin") => void;
+  handleLogout: () => Promise<void>;
+  // Dados do usuário
   profile: UserProfile | null;
+  refreshProfile: () => Promise<void>;
+  // Configs globais
   configs: AppConfigs;
   configsLoaded: boolean;
-  /** Força re-fetch do perfil (ex: após o usuário editar dados) */
-  refreshProfile: () => Promise<void>;
 }
 
-// ---------------------------------------------------------------------------
-// Defaults
-// ---------------------------------------------------------------------------
-
-const DEFAULT_CONFIGS: AppConfigs = {
-  pricingTable: null,
-  platformFeePercent: 20,
-};
+const DEFAULT_CONFIGS: AppConfigs = { pricingTable: null, platformFeePercent: 20 };
 
 const AppContext = createContext<AppContextValue>({
+  isLoadingAuth: true,
+  isLoggedIn: false,
   userId: null,
+  mode: "sender",
+  setMode: () => {},
+  handleLogout: async () => {},
   profile: null,
+  refreshProfile: async () => {},
   configs: DEFAULT_CONFIGS,
   configsLoaded: false,
-  refreshProfile: async () => {},
 });
 
 // ---------------------------------------------------------------------------
-// Provider
+// Provider — única fonte de verdade de autenticação
 // ---------------------------------------------------------------------------
 
 export function AppProvider({ children }: { children: ReactNode }) {
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [mode, setMode] = useState<"sender" | "traveler" | "admin">("sender");
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [configs, setConfigs] = useState<AppConfigs>(DEFAULT_CONFIGS);
   const [configsLoaded, setConfigsLoaded] = useState(false);
 
-  // Evita duplo fetch se o componente re-renderizar
   const profileFetchedFor = useRef<string | null>(null);
   const configsFetched = useRef(false);
 
   // -------------------------------------------------------------------------
-  // Helpers
+  // Fetches de dados do usuário
   // -------------------------------------------------------------------------
 
-  const fetchProfile = useCallback(async (uid: string) => {
+  const fetchProfile = useCallback(async (uid: string, email: string) => {
     try {
       const { data } = await supabase
         .from("profiles")
@@ -84,11 +92,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
         .single();
 
       if (data) {
-        const { data: { user } } = await supabase.auth.getUser();
         setProfile({
           id: data.id,
           full_name: data.full_name || "",
-          email: user?.email || "",
+          email,
           cpf: data.cpf || "",
           phone: data.phone || "",
           avatar_url: data.avatar_url,
@@ -96,10 +103,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
           rating: data.rating,
           referral_code: data.referral_code,
         });
+        return data.role as string | undefined;
       }
     } catch (err) {
       console.error("[AppContext] fetchProfile error:", err);
     }
+    return undefined;
   }, []);
 
   const fetchConfigs = useCallback(async () => {
@@ -122,38 +131,60 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshProfile = useCallback(async () => {
-    if (userId) {
-      profileFetchedFor.current = null; // permite re-fetch
-      await fetchProfile(userId);
-    }
-  }, [userId, fetchProfile]);
+    if (!userId) return;
+    profileFetchedFor.current = null;
+    const email = profile?.email ?? "";
+    await fetchProfile(userId, email);
+  }, [userId, profile?.email, fetchProfile]);
 
   // -------------------------------------------------------------------------
-  // Auth listener — seta userId e dispara fetches iniciais
+  // Listener único de auth — NENHUM outro componente deve ouvir onAuthStateChange
   // -------------------------------------------------------------------------
 
   useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      const uid = session?.user?.id ?? null;
-      setUserId(uid);
+    // Safety timer: após 8s sem resposta, libera a UI
+    const safetyTimer = setTimeout(() => setIsLoadingAuth(false), 8000);
 
-      if (uid && profileFetchedFor.current !== uid) {
-        profileFetchedFor.current = uid;
-        fetchProfile(uid);
-        fetchConfigs();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (_event, session) => {
+        clearTimeout(safetyTimer);
+
+        if (!session?.user) {
+          setIsLoggedIn(false);
+          setUserId(null);
+          setProfile(null);
+          profileFetchedFor.current = null;
+          setIsLoadingAuth(false);
+          return;
+        }
+
+        const uid = session.user.id;
+        const email = session.user.email ?? "";
+
+        setUserId(uid);
+        setIsLoggedIn(true);
+
+        // Busca perfil+role uma única vez por uid
+        if (profileFetchedFor.current !== uid) {
+          profileFetchedFor.current = uid;
+          const role = await fetchProfile(uid, email);
+          const resolvedRole = role ?? session.user.user_metadata?.role ?? "cliente";
+          setMode(String(resolvedRole).trim().toLowerCase() === "admin" ? "admin" : "sender");
+          fetchConfigs(); // fire-and-forget, não bloqueia o loading
+        }
+
+        setIsLoadingAuth(false);
       }
+    );
 
-      if (!uid) {
-        setProfile(null);
-        profileFetchedFor.current = null;
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, [fetchProfile, fetchConfigs]);
 
   // -------------------------------------------------------------------------
-  // Realtime: atualiza o perfil automaticamente quando mudar no banco
+  // Realtime: atualiza o perfil quando mudar no banco
   // -------------------------------------------------------------------------
 
   useEffect(() => {
@@ -163,12 +194,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .channel(`profile:${userId}`)
       .on(
         "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${userId}`,
-        },
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
         (payload) => {
           setProfile((prev) =>
             prev ? { ...prev, ...(payload.new as Partial<UserProfile>) } : prev
@@ -177,13 +203,35 @@ export function AppProvider({ children }: { children: ReactNode }) {
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [userId]);
 
+  // -------------------------------------------------------------------------
+
+  const handleLogout = useCallback(async () => {
+    await supabase.auth.signOut();
+    setIsLoggedIn(false);
+    setUserId(null);
+    setProfile(null);
+    setMode("sender");
+    profileFetchedFor.current = null;
+  }, []);
+
   return (
-    <AppContext.Provider value={{ userId, profile, configs, configsLoaded, refreshProfile }}>
+    <AppContext.Provider
+      value={{
+        isLoadingAuth,
+        isLoggedIn,
+        userId,
+        mode,
+        setMode,
+        handleLogout,
+        profile,
+        refreshProfile,
+        configs,
+        configsLoaded,
+      }}
+    >
       {children}
     </AppContext.Provider>
   );
