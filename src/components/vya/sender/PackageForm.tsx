@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { suggestPackageSize } from "@/ai/flows/intelligent-package-sizing-flow";
 import { extractFiscalDocumentData } from "@/ai/flows/fiscal-document-data-extraction-flow";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
@@ -32,7 +34,12 @@ import {
   Phone,
   Clock,
   AlertTriangle,
-  Users
+  Users,
+  Search,
+  UserCheck,
+  UserX,
+  Link2,
+  Link2Off
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -163,6 +170,14 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [withInsurance, setWithInsurance] = useState(true);
 
+  // Destinatário — busca de perfil existente
+  type LinkedProfile = { id: string; full_name: string; phone: string; cpf: string; avatar_url?: string | null; };
+  const [phoneSearchInput, setPhoneSearchInput] = useState("");
+  const [isSearchingRecipient, setIsSearchingRecipient] = useState(false);
+  const [foundProfile, setFoundProfile] = useState<LinkedProfile | 'not_found' | null>(null);
+  const [linkedProfile, setLinkedProfile] = useState<LinkedProfile | null>(null);
+  const phoneSearchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // Cidades selecionadas
   const [selectedOrigin, setSelectedOrigin] = useState<CityOption | null>(null);
   const [selectedDest, setSelectedDest] = useState<CityOption | null>(null);
@@ -175,7 +190,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Data de envio e contagem de viajantes
-  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [selectedDate, setSelectedDate] = useState<string>(new Date().toISOString().split('T')[0]);
   const [travelerCount, setTravelerCount] = useState<number | null>(null);
   const [isCountingTravelers, setIsCountingTravelers] = useState(false);
 
@@ -264,6 +279,50 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }, []);
 
+  // Busca perfil de destinatário pelo telefone
+  const handlePhoneSearchChange = useCallback((value: string) => {
+    setPhoneSearchInput(value);
+    if (linkedProfile) return; // já vinculado, não busca novamente
+    const cleaned = value.replace(/\D/g, '');
+    if (phoneSearchDebounce.current) clearTimeout(phoneSearchDebounce.current);
+    if (cleaned.length < 8) { setFoundProfile(null); setIsSearchingRecipient(false); return; }
+    setIsSearchingRecipient(true);
+    setFoundProfile(null);
+    phoneSearchDebounce.current = setTimeout(async () => {
+      try {
+        const { data } = await supabase
+          .from('profiles')
+          .select('id, full_name, phone, cpf, avatar_url')
+          .ilike('phone', `%${cleaned}%`)
+          .limit(1)
+          .maybeSingle();
+        setFoundProfile(data ? (data as LinkedProfile) : 'not_found');
+      } catch {
+        setFoundProfile('not_found');
+      } finally {
+        setIsSearchingRecipient(false);
+      }
+    }, 700);
+  }, [linkedProfile]);
+
+  const handleSelectLinkedProfile = (profile: LinkedProfile) => {
+    setLinkedProfile(profile);
+    setFoundProfile(null);
+    setPhoneSearchInput("");
+    form.setValue('recipientName', profile.full_name ?? '');
+    form.setValue('recipientPhone', profile.phone ?? '');
+    form.setValue('recipientCpf', profile.cpf ?? '');
+  };
+
+  const handleClearLinkedProfile = () => {
+    setLinkedProfile(null);
+    setFoundProfile(null);
+    setPhoneSearchInput("");
+    form.setValue('recipientName', '');
+    form.setValue('recipientPhone', '');
+    form.setValue('recipientCpf', '');
+  };
+
   const fetchTravelerCount = useCallback(async (origin: string, dest: string, date: string) => {
     setIsCountingTravelers(true);
     setTravelerCount(null);
@@ -292,8 +351,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       setRouteNotFound(false);
       setCalculatedDistance(0);
     }
-    // Reseta a data ao trocar cidades
-    setSelectedDate("");
+    // Reseta a data para hoje ao trocar cidades
+    setSelectedDate(new Date().toISOString().split('T')[0]);
     setTravelerCount(null);
   }, [selectedOrigin, selectedDest, lookupRoute]);
 
@@ -400,6 +459,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
         recipient_name: values.recipientName,
         recipient_phone: values.recipientPhone,
         recipient_cpf: values.recipientCpf,
+        recipient_id: linkedProfile?.id ?? null,
         price: base, // Salva o frete base; a taxa da plataforma é descontada no repasse ao viajante
         scheduled_date: selectedDate || null,
         pickup_code: generateCode(),
@@ -800,8 +860,98 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Quem recebe? 🤝</h2>
-                <p className="text-sm text-muted-foreground">Precisamos dos dados de quem vai retirar a encomenda.</p>
+                <p className="text-sm text-muted-foreground">Busque quem já tem conta na VYA ou preencha manualmente.</p>
               </div>
+
+              {/* BUSCA POR TELEFONE */}
+              {!linkedProfile ? (
+                <div className="space-y-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Buscar pelo telefone</p>
+                  <div className="relative">
+                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Digite o telefone do destinatário..."
+                      value={phoneSearchInput}
+                      onChange={(e) => handlePhoneSearchChange(e.target.value)}
+                      className="pl-11 h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20"
+                    />
+                    {isSearchingRecipient && (
+                      <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-primary" />
+                    )}
+                  </div>
+
+                  {/* Perfil encontrado */}
+                  {!isSearchingRecipient && foundProfile && foundProfile !== 'not_found' && (
+                    <div className="p-4 bg-green-50 rounded-2xl border border-green-100 flex items-center gap-3 animate-in slide-in-from-top-2">
+                      <Avatar className="h-12 w-12 shrink-0">
+                        <AvatarImage src={foundProfile.avatar_url ?? undefined} />
+                        <AvatarFallback className="bg-green-100 text-green-700 font-bold">
+                          {foundProfile.full_name?.charAt(0).toUpperCase() ?? 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-green-800 truncate">{foundProfile.full_name}</p>
+                        <p className="text-[10px] text-green-600 font-medium">{foundProfile.phone}</p>
+                        <Badge variant="secondary" className="mt-0.5 text-[9px] bg-green-100 text-green-700 border-none px-2">
+                          <UserCheck className="h-3 w-3 mr-1" /> Usuário VYA
+                        </Badge>
+                      </div>
+                      <Button
+                        type="button"
+                        size="sm"
+                        className="rounded-xl h-9 px-4 font-bold shrink-0 bg-green-600 hover:bg-green-700"
+                        onClick={() => handleSelectLinkedProfile(foundProfile)}
+                      >
+                        Usar
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Não encontrado */}
+                  {!isSearchingRecipient && foundProfile === 'not_found' && phoneSearchInput.length >= 3 && (
+                    <div className="p-3 bg-muted/20 rounded-xl border border-dashed flex items-center gap-2">
+                      <UserX className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <p className="text-[11px] text-muted-foreground font-medium">
+                        Nenhum usuário encontrado com esse telefone. Preencha os dados abaixo.
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="relative py-1">
+                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
+                    <div className="relative flex justify-center text-[10px] uppercase font-bold">
+                      <span className="bg-background px-4 text-muted-foreground">Ou preencha manualmente</span>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Perfil vinculado */
+                <div className="p-4 rounded-2xl border-2 border-primary/30 bg-primary/5 flex items-center gap-3">
+                  <Avatar className="h-12 w-12 shrink-0">
+                    <AvatarImage src={linkedProfile.avatar_url ?? undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold">
+                      {linkedProfile.full_name?.charAt(0).toUpperCase() ?? 'U'}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-bold text-sm truncate">{linkedProfile.full_name}</p>
+                      <Badge variant="secondary" className="text-[9px] bg-primary/10 text-primary border-none px-2 shrink-0">
+                        <Link2 className="h-3 w-3 mr-1" /> Vinculado
+                      </Badge>
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">{linkedProfile.phone}</p>
+                    <p className="text-[10px] text-muted-foreground">Vai acompanhar o envio pela conta dele</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleClearLinkedProfile}
+                    className="p-2 rounded-full hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors shrink-0"
+                  >
+                    <Link2Off className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
 
               <div className="space-y-4">
                 <FormField
