@@ -35,7 +35,10 @@ import {
   Filter,
   AlertCircle,
   XCircle,
-  Loader2
+  Loader2,
+  Download,
+  FileText,
+  FileCheck2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,6 +48,7 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTr
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PackageForm } from "./PackageForm";
 import { CheckoutScreen } from "./CheckoutScreen";
+import { printDeclarationPdf } from "@/lib/generate-declaration-pdf";
 import { cn } from "@/lib/utils";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -69,6 +73,8 @@ interface Shipment {
   pixQrCode: string;
   pixCopyPaste: string;
   expiresAt: string | null;
+  fiscalType: 'nf' | 'declaration' | null;
+  nfNumber: string;
   recipient: {
     name: string;
     phone: string;
@@ -131,6 +137,8 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         pixQrCode: pkg.pix_qr_code ?? '',
         pixCopyPaste: pkg.pix_copy_paste ?? '',
         expiresAt: pkg.expires_at ?? null,
+        fiscalType: pkg.fiscal_type ?? null,
+        nfNumber: pkg.nf_number ?? '',
         recipient: { name: pkg.recipient_name, phone: pkg.recipient_phone, cpf: pkg.recipient_cpf },
         traveler: travelerProfile ? {
           name: travelerProfile.full_name,
@@ -147,7 +155,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     try {
       const { data, error } = await supabase
         .from('packages')
-        .select(`*, pix_qr_code, pix_copy_paste, expires_at, trips (traveler_id, profiles (full_name, avatar_url, rating))`)
+        .select(`*, pix_qr_code, pix_copy_paste, expires_at, fiscal_type, nf_number, trips (traveler_id, profiles (full_name, avatar_url, rating))`)
         .eq('sender_id', userId)
         .order('created_at', { ascending: false });
 
@@ -669,6 +677,50 @@ function ShipmentDetail({ shipment, onBack, onCanceled }: { shipment: Shipment, 
                   <Phone className="h-4 w-4" />
                 </Button>
               </div>
+
+              {/* Informações Fiscais */}
+              {shipment.fiscalType && (
+                <div className="pt-4 border-t border-muted/50">
+                  <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest mb-3">Documentação Fiscal</p>
+                  {shipment.fiscalType === 'nf' ? (
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-green-50 flex items-center justify-center text-green-600">
+                        <FileCheck2 className="h-5 w-5" />
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Nota Fiscal</p>
+                        <p className="text-sm font-black text-foreground font-mono">{shipment.nfNumber}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
+                      <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center text-amber-600">
+                        <FileText className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest">Declaração de Conteúdo</p>
+                        <p className="text-[11px] text-muted-foreground">Imprima, assine e cole no pacote</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="rounded-xl h-9 px-3 gap-1.5 font-bold text-xs border-amber-200 text-amber-700 hover:bg-amber-50"
+                        onClick={() => printDeclarationPdf({
+                          senderName: '',
+                          recipientName: shipment.recipient.name,
+                          recipientCpf: shipment.recipient.cpf,
+                          description: shipment.description,
+                          size: shipment.size,
+                          packageId: shipment.id,
+                          date: shipment.date,
+                        })}
+                      >
+                        <Download className="h-3.5 w-3.5" /> PDF
+                      </Button>
+                    </div>
+                  )}
+                </div>
+              )}
             </CardContent>
           </Card>
         </section>

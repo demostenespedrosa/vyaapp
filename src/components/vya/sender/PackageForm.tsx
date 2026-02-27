@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { suggestPackageSize } from "@/ai/flows/intelligent-package-sizing-flow";
-import { extractFiscalDocumentData } from "@/ai/flows/fiscal-document-data-extraction-flow";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +19,6 @@ import {
   Loader2, 
   Sparkles, 
   CheckCircle2, 
-  Upload, 
   MapPin, 
   ChevronRight, 
   ArrowLeft,
@@ -39,7 +37,10 @@ import {
   UserCheck,
   UserX,
   Link2,
-  Link2Off
+  Link2Off,
+  FileText,
+  Hash,
+  FileCheck2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -164,11 +165,12 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const { toast } = useToast();
   const [step, setStep] = useState(1);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isExtracting, setIsExtracting] = useState(false);
   const [aiSuggestion, setAiSuggestion] = useState<any>(null);
-  const [fiscalInfo, setFiscalInfo] = useState<any>(null);
-  const [hasUploadedFile, setHasUploadedFile] = useState(false);
   const [withInsurance, setWithInsurance] = useState(true);
+
+  // Fiscal
+  const [fiscalType, setFiscalType] = useState<'nf' | 'declaration' | null>(null);
+  const [nfNumber, setNfNumber] = useState("");
 
   // Destinatário — busca de perfil existente
   type LinkedProfile = { id: string; full_name: string; phone: string; cpf: string; avatar_url?: string | null; };
@@ -364,33 +366,6 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }, [selectedDate, selectedOrigin, selectedDest, matchedRoute, fetchTravelerCount]);
 
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsExtracting(true);
-    setHasUploadedFile(true);
-    try {
-      const reader = new FileReader();
-      reader.onloadend = async () => {
-        const base64 = reader.result as string;
-        const result = await extractFiscalDocumentData({ documentDataUri: base64 });
-        setFiscalInfo(result);
-        if (result.recipient) {
-          form.setValue("recipientName", result.recipient.name);
-        }
-        toast({ title: "Documento lido!", description: "Dados extraídos com sucesso." });
-      };
-      reader.readAsDataURL(file);
-    } catch (e) {
-      setIsExtracting(false);
-      setHasUploadedFile(false);
-      toast({ variant: "destructive", title: "Erro no upload", description: "Tente novamente." });
-    } finally {
-      setIsExtracting(false);
-    }
-  };
-
   const nextStep = async () => {
     if (step === 1 && (!selectedOrigin || !selectedDest)) {
       toast({ variant: "destructive", title: "Ops!", description: "Selecione a origem e o destino." });
@@ -407,6 +382,16 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     if (step === 2 && !selectedDate) {
       toast({ variant: "destructive", title: "Escolha a data", description: "Selecione a data em que deseja enviar o pacote." });
       return;
+    }
+    if (step === 4) {
+      if (!fiscalType) {
+        toast({ variant: "destructive", title: "Documentação obrigatória", description: "Selecione se tem Nota Fiscal ou irá usar a Declaração de Conteúdo." });
+        return;
+      }
+      if (fiscalType === 'nf' && !nfNumber.trim()) {
+        toast({ variant: "destructive", title: "Informe o número da NF", description: "Digite o número da Nota Fiscal." });
+        return;
+      }
     }
 
     let fieldsToValidate: any[] = [];
@@ -462,6 +447,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
         recipient_cpf: values.recipientCpf,
         recipient_id: linkedProfile?.id ?? null,
         price: base, // Salva o frete base; a taxa da plataforma é descontada no repasse ao viajante
+        fiscal_type: fiscalType,
+        nf_number: fiscalType === 'nf' ? nfNumber.trim() : null,
         scheduled_date: selectedDate || null,
         pickup_code: generateCode(),
         delivery_code: generateCode(),
@@ -823,63 +810,97 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Check-in Fiscal 📑</h2>
-                <p className="text-sm text-muted-foreground">Toda carga precisa ser legalizada para sua segurança.</p>
+                <p className="text-sm text-muted-foreground">Toda carga precisa ser documentada para a segurança de todos.</p>
               </div>
 
-              {!hasUploadedFile ? (
-                <div className="space-y-4">
-                  <div className="border-2 border-dashed border-primary/20 rounded-[2.5rem] p-10 flex flex-col items-center justify-center text-center gap-5 bg-muted/10 relative overflow-hidden group">
-                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                      <Upload className="h-8 w-8" />
-                    </div>
-                    <div className="space-y-1">
-                      <p className="font-bold">Escanear NF-e</p>
-                      <p className="text-[10px] text-muted-foreground px-4 uppercase tracking-widest">Extraímos os dados via IA</p>
-                    </div>
-                    <Input type="file" className="hidden" id="fiscal-upload" onChange={handleFileUpload} />
-                    <Button variant="outline" type="button" className="rounded-full px-8" asChild>
-                      <label htmlFor="fiscal-upload" className="cursor-pointer">Escolher Arquivo</label>
-                    </Button>
-                  </div>
-                  <div className="relative py-2">
-                    <div className="absolute inset-0 flex items-center"><span className="w-full border-t" /></div>
-                    <div className="relative flex justify-center text-[10px] uppercase font-bold"><span className="bg-background px-4 text-muted-foreground">Ou</span></div>
-                  </div>
-                  <Button variant="ghost" type="button" className="w-full h-14 rounded-[1.5rem] border border-dashed text-sm font-bold" onClick={() => { setFiscalInfo({ manual: true }); nextStep(); }}>
-                    Declaração de Conteúdo Manual
-                  </Button>
+              {/* Opção A — Nota Fiscal */}
+              <button
+                type="button"
+                onClick={() => setFiscalType('nf')}
+                className={cn(
+                  "w-full flex items-start gap-4 p-5 rounded-[2rem] border-2 text-left transition-all duration-200 active:scale-[0.98]",
+                  fiscalType === 'nf'
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-muted/40 bg-muted/10 opacity-70 hover:opacity-90"
+                )}
+              >
+                <div className={cn(
+                  "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
+                  fiscalType === 'nf' ? "bg-primary text-white" : "bg-muted/40 text-muted-foreground"
+                )}>
+                  <Hash className="h-6 w-6" />
                 </div>
-              ) : (
-                <Card className="rounded-[2rem] border-primary/20 bg-primary/5 overflow-hidden">
-                  <CardContent className="p-6 space-y-4">
-                    {isExtracting ? (
-                      <div className="flex flex-col items-center justify-center py-6 gap-3">
-                        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        <p className="text-sm font-bold animate-pulse text-primary uppercase tracking-widest">Lendo documento...</p>
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-3">
-                          <div className="h-10 w-10 rounded-2xl bg-green-500 text-white flex items-center justify-center">
-                            <CheckCircle2 className="h-6 w-6" />
-                          </div>
-                          <div>
-                            <p className="text-sm font-bold">Documento Processado!</p>
-                            <p className="text-[10px] text-muted-foreground uppercase">{fiscalInfo?.documentType || 'OK'}</p>
-                          </div>
-                        </div>
-                        <Button variant="ghost" size="sm" className="w-full text-[10px] font-bold text-primary mt-2" onClick={() => setHasUploadedFile(false)}>Trocar arquivo</Button>
-                      </>
-                    )}
-                  </CardContent>
-                </Card>
+                <div className="flex-1 space-y-0.5 pt-1">
+                  <p className="text-[15px] font-black text-foreground">Tenho Nota Fiscal</p>
+                  <p className="text-[11px] text-muted-foreground">Informe o número da NF-e ou NF-C emitida.</p>
+                </div>
+                <div className="pt-1 shrink-0">
+                  {fiscalType === 'nf'
+                    ? <CheckCircle2 className="h-5 w-5 text-primary" />
+                    : <div className="h-5 w-5 rounded-full border-2 border-muted" />}
+                </div>
+              </button>
+
+              {/* Campo número NF — aparece apenas quando selecionado */}
+              {fiscalType === 'nf' && (
+                <div className="animate-in slide-in-from-top-2 space-y-2 px-1">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Número da Nota Fiscal</p>
+                  <Input
+                    placeholder="Ex: 000123456"
+                    value={nfNumber}
+                    onChange={(e) => setNfNumber(e.target.value)}
+                    className="h-14 rounded-2xl bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-base font-bold"
+                  />
+                </div>
+              )}
+
+              {/* Opção B — Declaração de Conteúdo */}
+              <button
+                type="button"
+                onClick={() => setFiscalType('declaration')}
+                className={cn(
+                  "w-full flex items-start gap-4 p-5 rounded-[2rem] border-2 text-left transition-all duration-200 active:scale-[0.98]",
+                  fiscalType === 'declaration'
+                    ? "border-primary bg-primary/5 shadow-sm"
+                    : "border-muted/40 bg-muted/10 opacity-70 hover:opacity-90"
+                )}
+              >
+                <div className={cn(
+                  "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 transition-colors",
+                  fiscalType === 'declaration' ? "bg-primary text-white" : "bg-muted/40 text-muted-foreground"
+                )}>
+                  <FileText className="h-6 w-6" />
+                </div>
+                <div className="flex-1 space-y-0.5 pt-1">
+                  <p className="text-[15px] font-black text-foreground">Declaração de Conteúdo</p>
+                  <p className="text-[11px] text-muted-foreground">Não possuo NF. Vou imprimir a declaração e colar no pacote.</p>
+                </div>
+                <div className="pt-1 shrink-0">
+                  {fiscalType === 'declaration'
+                    ? <CheckCircle2 className="h-5 w-5 text-primary" />
+                    : <div className="h-5 w-5 rounded-full border-2 border-muted" />}
+                </div>
+              </button>
+
+              {fiscalType === 'declaration' && (
+                <div className="animate-in slide-in-from-top-2 p-4 rounded-2xl bg-amber-50 border border-amber-200 flex items-start gap-3">
+                  <FileCheck2 className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+                  <p className="text-[11px] text-amber-800 font-medium leading-relaxed">
+                    Após criar o envio, você poderá baixar o PDF da Declaração de Conteúdo na tela de detalhes. Imprima, assine e cole no pacote antes da entrega ao viajante.
+                  </p>
+                </div>
               )}
 
               <div className="flex gap-3">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
-                <Button type="button" onClick={nextStep} disabled={!fiscalInfo || isExtracting} className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform">
+                <Button
+                  type="button"
+                  onClick={nextStep}
+                  disabled={!fiscalType || (fiscalType === 'nf' && !nfNumber.trim())}
+                  className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform"
+                >
                   Continuar
                 </Button>
               </div>

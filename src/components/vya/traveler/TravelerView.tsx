@@ -48,6 +48,8 @@ interface TravelerTrip {
     sender: string;
     status: string;
     earnings: number;
+    nfNumber?: string;
+    fiscalType?: string;
   }>;
 }
 
@@ -75,7 +77,9 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
         sender: pkg.profiles?.full_name || 'Remetente',
         status: pkg.status,
         // Ganho do viajante = frete base descontada a taxa da plataforma
-        earnings: pkg.price * (1 - configs.platformFeePercent / 100)
+        earnings: pkg.price * (1 - configs.platformFeePercent / 100),
+        nfNumber: pkg.nf_number ?? undefined,
+        fiscalType: pkg.fiscal_type ?? undefined,
       })) || []
     }));
 
@@ -85,7 +89,7 @@ export function TravelerView({ initialIsCreating = false }: { initialIsCreating?
     try {
       const { data, error } = await supabase
         .from('trips')
-        .select(`*, packages (id, description, status, price, profiles!packages_sender_id_fkey (full_name))`)
+        .select(`*, packages (id, description, status, price, nf_number, fiscal_type, profiles!packages_sender_id_fkey (full_name))`)
         .eq('traveler_id', userId)
         .order('departure_date', { ascending: true });
 
@@ -440,6 +444,12 @@ function TripDetail({ trip, onBack }: { trip: TravelerTrip, onBack: () => void }
                         <div>
                           <p className="text-[9px] font-black text-muted-foreground uppercase tracking-widest opacity-60">Remetente</p>
                           <p className="text-xs font-bold text-foreground">{pkg.sender}</p>
+                          {pkg.fiscalType === 'nf' && pkg.nfNumber && (
+                            <p className="text-[9px] text-green-600 font-bold mt-0.5">NF {pkg.nfNumber}</p>
+                          )}
+                          {pkg.fiscalType === 'declaration' && (
+                            <p className="text-[9px] text-amber-600 font-bold mt-0.5">Declaração de Conteúdo</p>
+                          )}
                         </div>
                       </div>
                       <Badge className={cn(
