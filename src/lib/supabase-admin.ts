@@ -1,0 +1,21 @@
+import { createClient } from '@supabase/supabase-js';
+
+/**
+ * Cliente Supabase com Service Role Key — bypassa RLS.
+ * Usar APENAS em rotas de servidor (App Router route handlers).
+ * NUNCA expor no cliente.
+ */
+export function createAdminClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    throw new Error(
+      '[VYA] NEXT_PUBLIC_SUPABASE_URL ou SUPABASE_SERVICE_ROLE_KEY não configurados.'
+    );
+  }
+
+  return createClient(supabaseUrl, serviceRoleKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  });
+}

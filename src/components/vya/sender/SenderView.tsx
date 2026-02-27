@@ -41,12 +41,13 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { PackageForm } from "./PackageForm";
+import { CheckoutScreen } from "./CheckoutScreen";
 import { cn } from "@/lib/utils";
 import { copyToClipboard } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 
 // Estados detalhados do envio
-type ShipmentStatus = 'searching' | 'waiting_pickup' | 'transit' | 'waiting_delivery' | 'delivered' | 'canceled';
+type ShipmentStatus = 'searching' | 'waiting_payment' | 'waiting_pickup' | 'transit' | 'waiting_delivery' | 'delivered' | 'canceled';
 
 interface Shipment {
   id: string;
@@ -61,6 +62,9 @@ interface Shipment {
   price: number;
   pickupCode: string;
   deliveryCode: string;
+  pixQrCode: string;
+  pixCopyPaste: string;
+  expiresAt: string | null;
   recipient: {
     name: string;
     phone: string;
@@ -73,10 +77,20 @@ interface Shipment {
   };
 }
 
+interface CheckoutData {
+  packageId: string;
+  packageDisplayId: string;
+  pixQrCode: string;
+  pixCopyPaste: string;
+  expiresAt: string;
+  amount: number;
+}
+
 export function SenderView({ initialIsCreating = false }: { initialIsCreating?: boolean }) {
   const { userId } = useAppContext();
   const [isCreating, setIsCreating] = useState(initialIsCreating);
   const [selectedShipment, setSelectedShipment] = useState<Shipment | null>(null);
+  const [checkoutData, setCheckoutData] = useState<CheckoutData | null>(null);
   const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
   const [searchQuery, setSearchQuery] = useState("");
   const [shipments, setShipments] = useState<Shipment[]>([]);
@@ -87,6 +101,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
   const mapShipments = (data: any[]): Shipment[] => {
     const statusMap: Record<string, { label: string; progress: number }> = {
       'searching': { label: 'Buscando viajante', progress: 15 },
+      'waiting_payment': { label: 'Aguardando pagamento', progress: 28 },
       'waiting_pickup': { label: 'Aguardando coleta', progress: 40 },
       'transit': { label: 'A caminho', progress: 65 },
       'waiting_delivery': { label: 'Aguardando retirada', progress: 90 },
@@ -108,6 +123,9 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
         price: pkg.price,
         pickupCode: pkg.pickup_code,
         deliveryCode: pkg.delivery_code,
+        pixQrCode: pkg.pix_qr_code ?? '',
+        pixCopyPaste: pkg.pix_copy_paste ?? '',
+        expiresAt: pkg.expires_at ?? null,
         recipient: { name: pkg.recipient_name, phone: pkg.recipient_phone, cpf: pkg.recipient_cpf },
         traveler: travelerProfile ? {
           name: travelerProfile.full_name,
@@ -124,7 +142,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     try {
       const { data, error } = await supabase
         .from('packages')
-        .select(`*, trips (traveler_id, profiles (full_name, avatar_url, rating))`)
+        .select(`*, pix_qr_code, pix_copy_paste, expires_at, trips (traveler_id, profiles (full_name, avatar_url, rating))`)
         .eq('sender_id', userId)
         .order('created_at', { ascending: false });
 
@@ -159,7 +177,27 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
     const channel = supabase
       .channel(`packages-sender:${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'packages', filter: `sender_id=eq.${userId}` },
-        () => fetchShipments(true) // silent=true para não mostrar spinner
+        async (payload) => {
+          await fetchShipments(true); // atualiza a lista silenciosamente
+          // Se o pacote mudou para waiting_payment, abre a CheckoutScreen
+          const newRow = payload.new as Record<string, unknown>;
+          if (newRow?.status === 'waiting_payment' && newRow?.pix_copy_paste) {
+            setCheckoutData({
+              packageId: String(newRow.id),
+              packageDisplayId: 'VY-' + String(newRow.id).substring(0, 8).toUpperCase(),
+              pixQrCode: String(newRow.pix_qr_code ?? ''),
+              pixCopyPaste: String(newRow.pix_copy_paste),
+              expiresAt: String(newRow.expires_at),
+              amount: Number(newRow.price),
+            });
+          }
+          // Se o pacote saiu de waiting_payment (pagamento confirmado), fecha o checkout
+          if (newRow?.status === 'waiting_pickup') {
+            setCheckoutData(prev =>
+              prev?.packageId === String(newRow.id) ? null : prev
+            );
+          }
+        }
       )
       .subscribe();
 
@@ -168,6 +206,27 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
 
     return () => { supabase.removeChannel(channel); };
   }, [userId]);
+
+  // Se houver checkout pendente, exibe a tela de pagamento PIX
+  if (checkoutData) {
+    return (
+      <CheckoutScreen
+        packageDisplayId={checkoutData.packageDisplayId}
+        pixQrCode={checkoutData.pixQrCode}
+        pixCopyPaste={checkoutData.pixCopyPaste}
+        expiresAt={checkoutData.expiresAt}
+        amount={checkoutData.amount}
+        onPaid={() => {
+          setCheckoutData(null);
+          fetchShipments(true);
+        }}
+        onExpired={() => {
+          setCheckoutData(null);
+          fetchShipments(true);
+        }}
+      />
+    );
+  }
 
   // Se houver um envio selecionado, renderiza a tela de detalhes (simulando navegação nativa)
   if (selectedShipment) {
@@ -310,6 +369,7 @@ function ShipmentCard({ shipment, onClick }: { shipment: Shipment, onClick: () =
   const getStatusConfig = (status: ShipmentStatus) => {
     switch (status) {
       case 'searching': return { icon: UserCheck, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100" };
+      case 'waiting_payment': return { icon: QrCode, color: "text-yellow-600", bg: "bg-yellow-50", border: "border-yellow-200" };
       case 'waiting_pickup': return { icon: PackageOpen, color: "text-blue-600", bg: "bg-blue-50", border: "border-blue-100" };
       case 'transit': return { icon: Truck, color: "text-primary", bg: "bg-primary/10", border: "border-primary/20" };
       case 'waiting_delivery': return { icon: MapPinned, color: "text-purple-600", bg: "bg-purple-50", border: "border-purple-100" };
@@ -385,6 +445,7 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
   const { toast } = useToast();
   const steps = [
     { id: 'searching', label: 'Buscando Viajante', sub: 'Match em processamento' },
+    { id: 'waiting_payment', label: 'Aguardando Pagamento', sub: 'PIX gerado — confirme o pagamento' },
     { id: 'waiting_pickup', label: 'Aguardando Coleta', sub: 'Viajante indo ao ponto' },
     { id: 'transit', label: 'Em Trânsito', sub: 'Pacote na estrada' },
     { id: 'waiting_delivery', label: 'Pronto para Retirada', sub: 'Destinatário acionado' },

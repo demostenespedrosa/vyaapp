@@ -24,7 +24,8 @@ import {
   Calculator,
   HelpCircle,
   History,
-  Wallet
+  Wallet,
+  Loader2
 } from "lucide-react";
 import { NotificationBell } from "@/components/vya/shared/NotificationBell";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -33,6 +34,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useToast } from "@/hooks/use-toast";
 
 interface HomeDashboardProps {
   mode: 'sender' | 'traveler';
@@ -47,7 +49,8 @@ interface ActiveShipment {
 }
 
 interface AvailablePackage {
-  id: string;
+  id: string;    // display ID
+  rawId: string; // UUID completo para chamadas de API
   size: string;
   earnings: number;
   from: string;
@@ -78,6 +81,7 @@ function relativeTime(iso: string) {
 export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   // Perfil vem do contexto global — sem fetch extra
   const { profile, userId, configs } = useAppContext();
+  const { toast } = useToast();
 
   const [activeShipment, setActiveShipment] = useState<ActiveShipment | null>(null);
   const [availablePackages, setAvailablePackages] = useState<AvailablePackage[]>([]);
@@ -85,6 +89,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   const [todayEarnings, setTodayEarnings] = useState(0);
   const [todayDeliveries, setTodayDeliveries] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
+  const [acceptingId, setAcceptingId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!userId) return;
@@ -97,9 +102,49 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
       setTodayEarnings(cached.todayEarnings);
       setTodayDeliveries(cached.todayDeliveries);
       setIsLoading(false);
-      return;
+    } else {
+      fetchData();
     }
-    fetchData();
+
+    // Realtime: viajante vê novos pacotes assim que remetente criar
+    if (mode !== 'traveler') return;
+    const channel = supabase
+      .channel('available-packages')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'packages', filter: `status=eq.searching` },
+        (payload) => {
+          const pkg = payload.new as Record<string, unknown>;
+          const newEntry: AvailablePackage = {
+            id: 'VY-' + String(pkg.id).substring(0, 4).toUpperCase(),
+            rawId: String(pkg.id),
+            size: String(pkg.size),
+            earnings: Number(pkg.price) * (1 - configs.platformFeePercent / 100),
+            from: `${pkg.origin_city}, ${pkg.origin_state}`,
+            to: `${pkg.destination_city}, ${pkg.destination_state}`,
+            item: String(pkg.description),
+            time: 'Agora mesmo',
+            urgency: 'high',
+            distance: '',
+          };
+          setAvailablePackages(prev => [newEntry, ...prev].slice(0, 10));
+          dataCache.invalidatePrefix('home:traveler:');
+        }
+      )
+      .on(
+        'postgres_changes',
+        // Remove pacote da lista quando sai de 'searching' (foi aceito)
+        { event: 'UPDATE', schema: 'public', table: 'packages' },
+        (payload) => {
+          const updated = payload.new as Record<string, unknown>;
+          if (updated.status !== 'searching') {
+            setAvailablePackages(prev => prev.filter(p => p.rawId !== String(updated.id)));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [mode, userId]);
 
   const fetchData = async () => {
@@ -117,7 +162,7 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
       if (mode === 'sender') {
         // Envio ativo mais recente
         const statusProgress: Record<string, number> = {
-          searching: 15, waiting_pickup: 40, transit: 65, waiting_delivery: 90,
+          searching: 15, waiting_payment: 28, waiting_pickup: 40, transit: 65, waiting_delivery: 90,
         };
         const { data: pkgs } = await supabase
           .from('packages')
@@ -176,8 +221,9 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
         if (available) {
           newAvailablePackages = available.map((pkg, i) => ({
             id: 'VY-' + pkg.id.substring(0, 4).toUpperCase(),
+            rawId: pkg.id,
             size: pkg.size,
-            earnings: pkg.price * 0.8,
+            earnings: pkg.price * (1 - configs.platformFeePercent / 100),
             from: `${pkg.origin_city}, ${pkg.origin_state}`,
             to: `${pkg.destination_city}, ${pkg.destination_state}`,
             item: pkg.description,
@@ -210,6 +256,37 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
   };
 
   const firstName = profile?.full_name?.split(' ')[0] || '...';
+
+  // ── Aceitar pacote → gera PIX e avisa o remetente ──────────────────────
+  async function handleAceitar(pkg: AvailablePackage) {
+    setAcceptingId(pkg.rawId);
+    try {
+      const res = await fetch('/api/payments/generate-pix', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ packageId: pkg.rawId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro desconhecido');
+
+      toast({
+        title: 'Pacote aceito! 🎉',
+        description: 'O remetente foi notificado para efetuar o pagamento PIX.',
+      });
+
+      // Remove o pacote da lista local (já não está mais em 'searching')
+      setAvailablePackages(prev => prev.filter(p => p.rawId !== pkg.rawId));
+      dataCache.invalidatePrefix(`home:`);
+    } catch (err: unknown) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao aceitar pacote',
+        description: err instanceof Error ? err.message : 'Tente novamente.',
+      });
+    } finally {
+      setAcceptingId(null);
+    }
+  }
   const avatarUrl = profile?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.full_name || 'U')}&background=random&size=128`;
   const avatarFallback = profile?.full_name?.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() || '?';
 
@@ -460,8 +537,16 @@ export function HomeDashboard({ mode, onAction }: HomeDashboardProps) {
                         </div>
 
                         {/* Botão de Aceite */}
-                        <Button className="w-full h-14 rounded-[1.2rem] bg-brand-purple hover:bg-brand-purple/90 font-black text-sm gap-2 shadow-lg shadow-brand-purple/20 active:scale-95 transition-all">
-                          Aceitar Pacote <ChevronRight className="h-4 w-4" />
+                        <Button
+                          className="w-full h-14 rounded-[1.2rem] bg-brand-purple hover:bg-brand-purple/90 font-black text-sm gap-2 shadow-lg shadow-brand-purple/20 active:scale-95 transition-all disabled:opacity-60 disabled:scale-100"
+                          disabled={acceptingId !== null}
+                          onClick={() => handleAceitar(pkg)}
+                        >
+                          {acceptingId === pkg.rawId ? (
+                            <><Loader2 className="h-4 w-4 animate-spin" /> Processando...</>
+                          ) : (
+                            <>Aceitar Pacote <ChevronRight className="h-4 w-4" /></>
+                          )}
                         </Button>
                       </div>
                     </CardContent>
