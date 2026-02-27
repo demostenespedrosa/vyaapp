@@ -8,10 +8,7 @@ import { suggestPackageSize } from "@/ai/flows/intelligent-package-sizing-flow";
 import { extractFiscalDocumentData } from "@/ai/flows/fiscal-document-data-extraction-flow";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar } from "@/components/ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { format, parseISO } from "date-fns";
-import { ptBR } from "date-fns/locale";
+
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,7 +32,6 @@ import {
   Phone,
   Clock,
   AlertTriangle,
-  CalendarIcon,
   Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -180,7 +176,6 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
 
   // Data de envio e contagem de viajantes
   const [selectedDate, setSelectedDate] = useState<string>("");
-  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
   const [travelerCount, setTravelerCount] = useState<number | null>(null);
   const [isCountingTravelers, setIsCountingTravelers] = useState(false);
 
@@ -663,53 +658,16 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 <div className="space-y-3 animate-in slide-in-from-top-2">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Data de Envio</p>
 
-                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-                    <PopoverTrigger asChild>
-                      <button
-                        type="button"
-                        className={cn(
-                          "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all bg-white text-left",
-                          selectedDate ? "border-primary/40 bg-primary/5" : "border-muted hover:border-primary/30"
-                        )}
-                      >
-                        <div className={cn(
-                          "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                          selectedDate ? "bg-primary text-white" : "bg-muted text-muted-foreground"
-                        )}>
-                          <CalendarIcon className="h-5 w-5" />
-                        </div>
-                        <div className="flex-1">
-                          {selectedDate ? (
-                            <div>
-                              <p className="text-sm font-bold capitalize">
-                                {format(parseISO(selectedDate), "EEEE, d 'de' MMMM", { locale: ptBR })}
-                              </p>
-                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
-                                {format(parseISO(selectedDate), "yyyy")}
-                              </p>
-                            </div>
-                          ) : (
-                            <p className="text-sm font-medium text-muted-foreground">Escolha a data de envio</p>
-                          )}
-                        </div>
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="center">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate ? parseISO(selectedDate) : undefined}
-                        onSelect={(date) => {
-                          if (date) {
-                            setSelectedDate(format(date, "yyyy-MM-dd"));
-                            setIsCalendarOpen(false);
-                          }
-                        }}
-                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                        locale={ptBR}
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <input
+                    type="date"
+                    value={selectedDate}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={(e) => setSelectedDate(e.target.value)}
+                    className={cn(
+                      "w-full h-14 rounded-[1.5rem] border-2 px-4 text-sm font-bold bg-white transition-all outline-none focus:ring-2 focus:ring-primary/20",
+                      selectedDate ? "border-primary/40 bg-primary/5 text-foreground" : "border-muted text-muted-foreground"
+                    )}
+                  />
 
                   {isCountingTravelers && (
                     <div className="p-3 bg-muted/20 rounded-2xl border border-dashed flex items-center gap-2 animate-pulse">
