@@ -8,6 +8,10 @@ import { suggestPackageSize } from "@/ai/flows/intelligent-package-sizing-flow";
 import { extractFiscalDocumentData } from "@/ai/flows/fiscal-document-data-extraction-flow";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format, parseISO } from "date-fns";
+import { ptBR } from "date-fns/locale";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -30,7 +34,9 @@ import {
   User,
   Phone,
   Clock,
-  AlertTriangle
+  AlertTriangle,
+  CalendarIcon,
+  Users
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -172,6 +178,12 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const [isCalculatingRoute, setIsCalculatingRoute] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Data de envio e contagem de viajantes
+  const [selectedDate, setSelectedDate] = useState<string>("");
+  const [isCalendarOpen, setIsCalendarOpen] = useState(false);
+  const [travelerCount, setTravelerCount] = useState<number | null>(null);
+  const [isCountingTravelers, setIsCountingTravelers] = useState(false);
+
   // Configs de preço vêm do AppContext (buscadas uma única vez por sessão)
   const { configs, configsLoaded } = useAppContext();
   const pricingConfig = configs.pricingTable;
@@ -257,6 +269,26 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   }, []);
 
+  const fetchTravelerCount = useCallback(async (origin: string, dest: string, date: string) => {
+    setIsCountingTravelers(true);
+    setTravelerCount(null);
+    try {
+      const { count } = await supabase
+        .from('trips')
+        .select('id', { count: 'exact', head: true })
+        .eq('origin_city', origin)
+        .eq('destination_city', dest)
+        .eq('departure_date', date)
+        .eq('status', 'scheduled');
+      setTravelerCount(count ?? 0);
+    } catch (e) {
+      console.error('Erro ao buscar viajantes:', e);
+      setTravelerCount(0);
+    } finally {
+      setIsCountingTravelers(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (selectedOrigin && selectedDest && selectedOrigin.id !== selectedDest.id) {
       lookupRoute(selectedOrigin, selectedDest);
@@ -265,7 +297,18 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
       setRouteNotFound(false);
       setCalculatedDistance(0);
     }
+    // Reseta a data ao trocar cidades
+    setSelectedDate("");
+    setTravelerCount(null);
   }, [selectedOrigin, selectedDest, lookupRoute]);
+
+  useEffect(() => {
+    if (selectedOrigin && selectedDest && matchedRoute && selectedDate) {
+      fetchTravelerCount(selectedOrigin.name, selectedDest.name, selectedDate);
+    } else if (!selectedDate) {
+      setTravelerCount(null);
+    }
+  }, [selectedDate, selectedOrigin, selectedDest, matchedRoute, fetchTravelerCount]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -305,6 +348,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
     if (step === 2 && routeNotFound) {
       toast({ variant: "destructive", title: "Rota não disponível", description: "O admin ainda não cadastrou essa rota. Tente outra combinação." });
+      return;
+    }
+    if (step === 2 && matchedRoute && !selectedDate) {
+      toast({ variant: "destructive", title: "Escolha a data", description: "Selecione a data em que deseja enviar o pacote." });
       return;
     }
     
@@ -359,6 +406,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
         recipient_phone: values.recipientPhone,
         recipient_cpf: values.recipientCpf,
         price: base, // Salva o frete base; a taxa da plataforma é descontada no repasse ao viajante
+        scheduled_date: selectedDate || null,
         pickup_code: generateCode(),
         delivery_code: generateCode(),
         status: 'searching',
@@ -610,6 +658,103 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 )}
               </div>
 
+              {/* Data de Envio — aparece quando a rota é confirmada */}
+              {!isCalculatingRoute && matchedRoute && (
+                <div className="space-y-3 animate-in slide-in-from-top-2">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Data de Envio</p>
+
+                  <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "w-full flex items-center gap-4 p-4 rounded-[1.5rem] border-2 transition-all bg-white text-left",
+                          selectedDate ? "border-primary/40 bg-primary/5" : "border-muted hover:border-primary/30"
+                        )}
+                      >
+                        <div className={cn(
+                          "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                          selectedDate ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                        )}>
+                          <CalendarIcon className="h-5 w-5" />
+                        </div>
+                        <div className="flex-1">
+                          {selectedDate ? (
+                            <div>
+                              <p className="text-sm font-bold capitalize">
+                                {format(parseISO(selectedDate), "EEEE, d 'de' MMMM", { locale: ptBR })}
+                              </p>
+                              <p className="text-[10px] text-muted-foreground uppercase tracking-widest">
+                                {format(parseISO(selectedDate), "yyyy")}
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-sm font-medium text-muted-foreground">Escolha a data de envio</p>
+                          )}
+                        </div>
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="center">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate ? parseISO(selectedDate) : undefined}
+                        onSelect={(date) => {
+                          if (date) {
+                            setSelectedDate(format(date, "yyyy-MM-dd"));
+                            setIsCalendarOpen(false);
+                          }
+                        }}
+                        disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                        locale={ptBR}
+                      />
+                    </PopoverContent>
+                  </Popover>
+
+                  {isCountingTravelers && (
+                    <div className="p-3 bg-muted/20 rounded-2xl border border-dashed flex items-center gap-2 animate-pulse">
+                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                        Verificando viajantes disponíveis...
+                      </span>
+                    </div>
+                  )}
+
+                  {!isCountingTravelers && travelerCount !== null && selectedDate && (
+                    <div className={cn(
+                      "p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-2",
+                      travelerCount > 0 ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
+                    )}>
+                      <div className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                        travelerCount > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
+                      )}>
+                        <Users className="h-5 w-5" />
+                      </div>
+                      <div className="flex-1">
+                        {travelerCount > 0 ? (
+                          <>
+                            <p className="text-sm font-bold text-green-700">
+                              {travelerCount === 1 ? "1 viajante" : `${travelerCount} viajantes`} nessa rota nessa data!
+                            </p>
+                            <p className="text-[10px] text-green-600">
+                              Ótima chance de encontrar quem leve seu pacote. 🎉
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <p className="text-sm font-bold text-amber-700">Nenhum viajante confirmado ainda</p>
+                            <p className="text-[10px] text-amber-600">
+                              Tente outro dia ou publique mesmo assim — avisamos quando alguém planejar essa rota.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="flex gap-3 pt-4">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
@@ -617,7 +762,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 <Button
                   type="button"
                   onClick={nextStep}
-                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute || routeNotFound}
+                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute || routeNotFound || (!!matchedRoute && (!selectedDate || isCountingTravelers))}
                   className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform"
                 >
                   Continuar
