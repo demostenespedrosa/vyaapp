@@ -217,7 +217,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   const description = form.watch("description");
   useEffect(() => {
     const timer = setTimeout(() => {
-      if (description.length > 10 && step === 1) {
+      if (description.length > 10 && step === 3) {
         handleAnalyzeDescription();
       }
     }, 1500);
@@ -392,29 +392,30 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
   };
 
   const nextStep = async () => {
-    if (step === 2 && (!selectedOrigin || !selectedDest)) {
+    if (step === 1 && (!selectedOrigin || !selectedDest)) {
       toast({ variant: "destructive", title: "Ops!", description: "Selecione a origem e o destino." });
       return;
     }
-    if (step === 2 && selectedOrigin && selectedDest && selectedOrigin.id === selectedDest.id) {
+    if (step === 1 && selectedOrigin && selectedDest && selectedOrigin.id === selectedDest.id) {
       toast({ variant: "destructive", title: "Ops!", description: "Origem e destino não podem ser a mesma cidade." });
       return;
     }
-    if (step === 2 && routeNotFound) {
+    if (step === 1 && routeNotFound) {
       toast({ variant: "destructive", title: "Rota não disponível", description: "O admin ainda não cadastrou essa rota. Tente outra combinação." });
       return;
     }
-    if (step === 2 && matchedRoute && !selectedDate) {
+    if (step === 2 && !selectedDate) {
       toast({ variant: "destructive", title: "Escolha a data", description: "Selecione a data em que deseja enviar o pacote." });
       return;
     }
-    
+
     let fieldsToValidate: any[] = [];
     switch (step) {
-      case 1: fieldsToValidate = ["description", "size"]; break;
-      case 2: fieldsToValidate = ["origin", "destination"]; break;
-      case 3: fieldsToValidate = []; break; // Fiscal info validado pelo estado fiscalInfo
-      case 4: fieldsToValidate = ["recipientName", "recipientPhone", "recipientCpf"]; break;
+      case 1: fieldsToValidate = ["origin", "destination"]; break;
+      case 2: fieldsToValidate = []; break;
+      case 3: fieldsToValidate = ["description"]; break;
+      case 4: fieldsToValidate = []; break;
+      case 5: fieldsToValidate = ["recipientName", "recipientPhone", "recipientCpf"]; break;
       default: fieldsToValidate = [];
     }
     
@@ -478,7 +479,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     }
   };
 
-  const progress = (step / 5) * 100;
+  const progress = (step / 6) * 100;
   const selectedSize = form.watch("size") as SizeKey;
 
   // Faixa de distância
@@ -501,7 +502,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
     <div className="space-y-6 pb-20 page-transition">
       <div className="space-y-2">
         <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-          <span>Passo {step} de 5</span>
+          <span>Passo {step} de 6</span>
           <span>{Math.round(progress)}% Concluído</span>
         </div>
         <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
@@ -515,118 +516,8 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="space-y-1">
-                <h2 className="text-xl font-bold">O que vamos mandar? 📦</h2>
-                <p className="text-sm text-muted-foreground">Dê uma descrição rápida do conteúdo.</p>
-              </div>
-
-              <FormField
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormControl>
-                      <div className="relative">
-                        <Textarea 
-                          placeholder="Ex: Um tênis Nike e duas camisetas." 
-                          className="min-h-[120px] rounded-[1.5rem] bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-base p-5"
-                          {...field}
-                        />
-                        {isAnalyzing && (
-                          <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] font-bold text-primary bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm animate-pulse">
-                            <Sparkles className="h-3 w-3" /> IA analisando...
-                          </div>
-                        )}
-                      </div>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              <div className="space-y-3">
-                <div className="px-1">
-                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Tamanho do Pacote
-                  </FormLabel>
-                  <p className="text-[11px] text-muted-foreground mt-0.5">
-                    Escolha com calma — isso ajuda o viajante a confirmar que cabe 😊
-                  </p>
-                </div>
-
-                <div className="flex flex-col gap-3">
-                  {SIZE_OPTS.map(({ key, headline, hint, weight, examples, border, bg, textColor, illustration }) => {
-                    const isSelected = form.watch("size") === key;
-                    const isAiSuggested = aiSuggestion?.suggestedSize === key;
-                    return (
-                      <button
-                        key={key}
-                        type="button"
-                        onClick={() => form.setValue("size", key)}
-                        className={cn(
-                          "relative flex items-center rounded-[1.75rem] border-2 overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full",
-                          isSelected
-                            ? `${border} shadow-md bg-white`
-                            : "border-muted/40 bg-muted/10 opacity-60 hover:opacity-80"
-                        )}
-                      >
-                        {/* Painel ilustração */}
-                        <div
-                          className={cn(
-                            "w-24 h-24 flex-shrink-0 flex items-center justify-center p-2.5 transition-colors",
-                            isSelected ? bg : "bg-muted/20"
-                          )}
-                        >
-                          {illustration}
-                        </div>
-
-                        {/* Texto */}
-                        <div className="flex-1 px-4 py-3 space-y-0.5">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="text-[15px] font-black text-foreground leading-tight">{headline}</span>
-                            {isAiSuggested && (
-                              <span className="text-[8px] font-black bg-primary text-white px-2 py-0.5 rounded-full animate-bounce">
-                                IA SUGERIU
-                              </span>
-                            )}
-                          </div>
-                          <p className={cn("text-xs font-bold", isSelected ? textColor : "text-muted-foreground")}>
-                            {hint}
-                          </p>
-                          <p className="text-[10px] text-muted-foreground mt-0.5">
-                            {weight} &middot; {examples}
-                          </p>
-                        </div>
-
-                        {/* Indicador selecionado */}
-                        <div className="pr-4 flex-shrink-0">
-                          {isSelected ? (
-                            <CheckCircle2 className={cn("h-5 w-5", textColor)} />
-                          ) : (
-                            <div className="h-5 w-5 rounded-full border-2 border-muted" />
-                          )}
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-
-                {aiSuggestion?.restrictions && (
-                  <p className="text-[10px] text-destructive font-medium px-1 flex items-center gap-1">
-                    ⚠️ {aiSuggestion.restrictions}
-                  </p>
-                )}
-              </div>
-
-              <Button type="button" onClick={nextStep} className="w-full h-14 rounded-2xl text-base font-bold gap-2 active:scale-[0.98] transition-transform">
-                Continuar <ChevronRight className="h-5 w-5" />
-              </Button>
-            </div>
-          )}
-
-          {step === 2 && (
-            <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500">
-              <div className="space-y-1">
-                <h2 className="text-xl font-bold">Pra onde vai? 📍</h2>
-                <p className="text-sm text-muted-foreground">Selecione as cidades atendidas pela VYA.</p>
+                <h2 className="text-xl font-bold">Vamos cotar seu frete! ✈️</h2>
+                <p className="text-sm text-muted-foreground">Escolha cidades e tamanho para ver o valor antes de qualquer coisa.</p>
               </div>
 
               <div className="space-y-4">
@@ -676,111 +567,184 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
                 )}
 
                 {!isCalculatingRoute && matchedRoute && (
-                  <div className="space-y-2 animate-in slide-in-from-top-2">
-                    <div className="p-4 bg-primary/5 rounded-[1.5rem] border border-primary/20">
-                      <div className="flex justify-between items-center">
-                        <div className="flex items-center gap-2">
-                          <Route className="h-4 w-4 text-primary" />
-                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância</span>
-                        </div>
-                        <span className="text-sm font-bold text-primary">{Math.round(matchedRoute.distance_km)} km</span>
+                  <div className="p-4 bg-primary/5 rounded-[1.5rem] border border-primary/20 animate-in slide-in-from-top-2">
+                    <div className="flex justify-between items-center">
+                      <div className="flex items-center gap-2">
+                        <Route className="h-4 w-4 text-primary" />
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Distância</span>
                       </div>
-                      {matchedRoute.average_duration_min > 0 && (
-                        <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
-                          <div className="flex items-center gap-2">
-                            <Clock className="h-4 w-4 text-primary" />
-                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tempo estimado</span>
-                          </div>
-                          <span className="text-sm font-bold text-primary">
-                            {Math.floor(matchedRoute.average_duration_min / 60)}h {matchedRoute.average_duration_min % 60}m
-                          </span>
+                      <span className="text-sm font-bold text-primary">{Math.round(matchedRoute.distance_km)} km</span>
+                    </div>
+                    {matchedRoute.average_duration_min > 0 && (
+                      <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Tempo estimado</span>
                         </div>
-                      )}
-                      {matchedRoute.waypoints && matchedRoute.waypoints.length > 0 && (
-                        <div className="mt-2 pt-2 border-t border-primary/10">
-                          <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">Paradas no caminho</p>
-                          <div className="flex flex-wrap gap-1.5">
-                            {(Array.isArray(matchedRoute.waypoints) ? matchedRoute.waypoints : []).map((city: string, i: number) => (
-                              <span key={i} className="text-[10px] font-bold bg-primary/10 text-primary px-2 py-1 rounded-full">
-                                {city}
-                              </span>
-                            ))}
-                          </div>
+                        <span className="text-sm font-bold text-primary">
+                          {Math.floor(matchedRoute.average_duration_min / 60)}h {matchedRoute.average_duration_min % 60}m
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+
+              {/* Seletor de Tamanho */}
+              <div className="space-y-3">
+                <div className="px-1">
+                  <FormLabel className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Tamanho do Pacote
+                  </FormLabel>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">
+                    O tamanho define o valor do frete
+                  </p>
+                </div>
+                <div className="flex flex-col gap-3">
+                  {SIZE_OPTS.map(({ key, headline, hint, weight, examples, border, bg, textColor, illustration }) => {
+                    const isSelected = form.watch("size") === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => form.setValue("size", key)}
+                        className={cn(
+                          "relative flex items-center rounded-[1.75rem] border-2 overflow-hidden transition-all duration-200 active:scale-[0.98] text-left w-full",
+                          isSelected ? `${border} shadow-md bg-white` : "border-muted/40 bg-muted/10 opacity-60 hover:opacity-80"
+                        )}
+                      >
+                        <div className={cn("w-24 h-24 flex-shrink-0 flex items-center justify-center p-2.5 transition-colors", isSelected ? bg : "bg-muted/20")}>
+                          {illustration}
                         </div>
+                        <div className="flex-1 px-4 py-3 space-y-0.5">
+                          <span className="text-[15px] font-black text-foreground leading-tight">{headline}</span>
+                          <p className={cn("text-xs font-bold", isSelected ? textColor : "text-muted-foreground")}>{hint}</p>
+                          <p className="text-[10px] text-muted-foreground mt-0.5">{weight} · {examples}</p>
+                        </div>
+                        <div className="pr-4 flex-shrink-0">
+                          {isSelected ? (
+                            <CheckCircle2 className={cn("h-5 w-5", textColor)} />
+                          ) : (
+                            <div className="h-5 w-5 rounded-full border-2 border-muted" />
+                          )}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Preview de Cotação */}
+              {matchedRoute && !pricingLoading && (
+                <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-[2rem] p-6 border border-primary/20 space-y-3 animate-in slide-in-from-bottom-2">
+                  <div className="flex items-center gap-2">
+                    <div className="h-8 w-8 rounded-xl bg-primary text-white flex items-center justify-center">
+                      <CreditCard className="h-4 w-4" />
+                    </div>
+                    <p className="text-[10px] font-black uppercase tracking-widest text-primary">Cotação do Frete</p>
+                  </div>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <p className="text-[10px] text-muted-foreground font-medium">Pacote {selectedSize} · {Math.round(calculatedDistance)} km ({distanceBandLabel})</p>
+                      <p className="text-4xl font-black text-primary tracking-tight">R$ {baseFreight.toFixed(2)}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[10px] text-muted-foreground">+ R$ {insurancePrice.toFixed(2)}</p>
+                      <p className="text-[10px] text-muted-foreground">seguro opcional</p>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Estimativa. O valor final é confirmado ao solicitar.</p>
+                </div>
+              )}
+              {matchedRoute && pricingLoading && (
+                <div className="flex items-center justify-center gap-2 p-4 bg-muted/10 rounded-[2rem]">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                  <span className="text-sm text-muted-foreground">Calculando frete...</span>
+                </div>
+              )}
+
+              <Button
+                type="button"
+                onClick={nextStep}
+                disabled={!selectedOrigin || !selectedDest || isCalculatingRoute || routeNotFound}
+                className="w-full h-14 rounded-2xl text-base font-bold gap-2 active:scale-[0.98] transition-transform"
+              >
+                {matchedRoute ? 'Continuar com este frete' : 'Continuar'} <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          )}
+
+          {step === 2 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold">Quando enviar? 📅</h2>
+                <p className="text-sm text-muted-foreground">Escolha a data e veja os viajantes disponíveis nessa rota.</p>
+              </div>
+
+              <div className="space-y-3">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Data de Envio</p>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className={cn(
+                    "w-full h-14 rounded-[1.5rem] border-2 px-4 text-sm font-bold bg-white transition-all outline-none focus:ring-2 focus:ring-primary/20",
+                    selectedDate ? "border-primary/40 bg-primary/5 text-foreground" : "border-muted text-muted-foreground"
+                  )}
+                />
+
+                {isCountingTravelers && (
+                  <div className="p-3 bg-muted/20 rounded-2xl border border-dashed flex items-center gap-2 animate-pulse">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                      Verificando viajantes disponíveis...
+                    </span>
+                  </div>
+                )}
+
+                {!isCountingTravelers && travelerCount !== null && selectedDate && (
+                  <div className={cn(
+                    "p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-2",
+                    travelerCount > 0 ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
+                  )}>
+                    <div className={cn(
+                      "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
+                      travelerCount > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
+                    )}>
+                      <Users className="h-5 w-5" />
+                    </div>
+                    <div className="flex-1">
+                      {travelerCount > 0 ? (
+                        <>
+                          <p className="text-sm font-bold text-green-700">
+                            {travelerCount === 1 ? "1 viajante" : `${travelerCount} viajantes`} nessa rota nessa data!
+                          </p>
+                          <p className="text-[10px] text-green-600">
+                            Ótima chance de encontrar quem leve seu pacote. 🎉
+                          </p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm font-bold text-amber-700">Nenhum viajante confirmado ainda</p>
+                          <p className="text-[10px] text-amber-600">
+                            Tente outro dia ou publique mesmo assim — avisamos quando alguém planejar essa rota.
+                          </p>
+                        </>
                       )}
                     </div>
                   </div>
                 )}
               </div>
 
-              {/* Data de Envio — aparece quando a rota é confirmada */}
-              {!isCalculatingRoute && matchedRoute && (
-                <div className="space-y-3 animate-in slide-in-from-top-2">
-                  <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground px-1">Data de Envio</p>
-
-                  <input
-                    type="date"
-                    value={selectedDate}
-                    min={new Date().toISOString().split('T')[0]}
-                    onChange={(e) => setSelectedDate(e.target.value)}
-                    className={cn(
-                      "w-full h-14 rounded-[1.5rem] border-2 px-4 text-sm font-bold bg-white transition-all outline-none focus:ring-2 focus:ring-primary/20",
-                      selectedDate ? "border-primary/40 bg-primary/5 text-foreground" : "border-muted text-muted-foreground"
-                    )}
-                  />
-
-                  {isCountingTravelers && (
-                    <div className="p-3 bg-muted/20 rounded-2xl border border-dashed flex items-center gap-2 animate-pulse">
-                      <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        Verificando viajantes disponíveis...
-                      </span>
-                    </div>
-                  )}
-
-                  {!isCountingTravelers && travelerCount !== null && selectedDate && (
-                    <div className={cn(
-                      "p-4 rounded-2xl border flex items-center gap-3 animate-in slide-in-from-top-2",
-                      travelerCount > 0 ? "bg-green-50 border-green-100" : "bg-amber-50 border-amber-100"
-                    )}>
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center shrink-0",
-                        travelerCount > 0 ? "bg-green-100 text-green-600" : "bg-amber-100 text-amber-600"
-                      )}>
-                        <Users className="h-5 w-5" />
-                      </div>
-                      <div className="flex-1">
-                        {travelerCount > 0 ? (
-                          <>
-                            <p className="text-sm font-bold text-green-700">
-                              {travelerCount === 1 ? "1 viajante" : `${travelerCount} viajantes`} nessa rota nessa data!
-                            </p>
-                            <p className="text-[10px] text-green-600">
-                              Ótima chance de encontrar quem leve seu pacote. 🎉
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <p className="text-sm font-bold text-amber-700">Nenhum viajante confirmado ainda</p>
-                            <p className="text-[10px] text-amber-600">
-                              Tente outro dia ou publique mesmo assim — avisamos quando alguém planejar essa rota.
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="flex gap-3 pt-4">
+              <div className="flex gap-3 pt-2">
                 <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
                   <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <Button
                   type="button"
                   onClick={nextStep}
-                  disabled={!selectedOrigin || !selectedDest || isCalculatingRoute || routeNotFound || (!!matchedRoute && (!selectedDate || isCountingTravelers))}
+                  disabled={!selectedDate || isCountingTravelers}
                   className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform"
                 >
                   Continuar
@@ -790,6 +754,72 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
           )}
 
           {step === 3 && (
+            <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
+              <div className="space-y-1">
+                <h2 className="text-xl font-bold">O que tem dentro? 📦</h2>
+                <p className="text-sm text-muted-foreground">Descreva o conteúdo para o viajante saber o que vai transportar.</p>
+              </div>
+
+              <FormField
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormControl>
+                      <div className="relative">
+                        <Textarea
+                          placeholder="Ex: Um tênis Nike e duas camisetas."
+                          className="min-h-[120px] rounded-[1.5rem] bg-muted/30 border-none focus-visible:ring-2 focus-visible:ring-primary/20 text-base p-5"
+                          {...field}
+                        />
+                        {isAnalyzing && (
+                          <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[10px] font-bold text-primary bg-white/80 backdrop-blur-sm px-3 py-1 rounded-full shadow-sm animate-pulse">
+                            <Sparkles className="h-3 w-3" /> IA analisando...
+                          </div>
+                        )}
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {aiSuggestion && aiSuggestion.suggestedSize !== form.watch("size") && (
+                <div className="p-4 bg-primary/5 rounded-2xl border border-primary/20 flex items-center gap-3">
+                  <Sparkles className="h-5 w-5 text-primary shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-sm font-bold">IA sugere tamanho {aiSuggestion.suggestedSize}</p>
+                    <p className="text-[10px] text-muted-foreground">Com base na descrição do conteúdo</p>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl font-bold text-primary border-primary/30 shrink-0"
+                    onClick={() => form.setValue("size", aiSuggestion.suggestedSize)}
+                  >
+                    Usar
+                  </Button>
+                </div>
+              )}
+
+              {aiSuggestion?.restrictions && (
+                <p className="text-[10px] text-destructive font-medium px-1 flex items-center gap-1">
+                  ⚠️ {aiSuggestion.restrictions}
+                </p>
+              )}
+
+              <div className="flex gap-3">
+                <Button type="button" variant="ghost" onClick={prevStep} className="h-14 w-14 rounded-2xl bg-muted/30 active:scale-90 transition-transform">
+                  <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <Button type="button" onClick={nextStep} className="flex-1 h-14 rounded-2xl text-base font-bold active:scale-[0.98] transition-transform">
+                  Continuar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {step === 4 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Check-in Fiscal 📑</h2>
@@ -856,7 +886,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             </div>
           )}
 
-          {step === 4 && (
+          {step === 5 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500">
               <div className="space-y-1">
                 <h2 className="text-xl font-bold">Quem recebe? 🤝</h2>
@@ -1014,10 +1044,10 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
             </div>
           )}
 
-          {step === 5 && (
+          {step === 6 && (
             <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-10">
               <div className="space-y-1">
-                <h2 className="text-xl font-bold">Resumo e Pagamento 🏁</h2>
+                <h2 className="text-xl font-bold">Confirmar Pedido 🏁</h2>
                 <p className="text-sm text-muted-foreground">Confira os valores finais antes do PIX.</p>
               </div>
 
