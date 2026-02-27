@@ -33,13 +33,16 @@ import {
   Box,
   QrCode,
   Filter,
-  AlertCircle
+  AlertCircle,
+  XCircle,
+  Loader2
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { PackageForm } from "./PackageForm";
 import { CheckoutScreen } from "./CheckoutScreen";
 import { cn } from "@/lib/utils";
@@ -51,6 +54,7 @@ type ShipmentStatus = 'searching' | 'waiting_payment' | 'waiting_pickup' | 'tran
 
 interface Shipment {
   id: string;
+  rawId: string;
   status: ShipmentStatus;
   statusLabel: string;
   description: string;
@@ -112,6 +116,7 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
       const travelerProfile = pkg.trips?.profiles;
       return {
         id: pkg.id.substring(0, 8).toUpperCase(),
+        rawId: pkg.id,
         status: pkg.status as ShipmentStatus,
         statusLabel: statusMap[pkg.status]?.label || pkg.status,
         description: pkg.description,
@@ -232,7 +237,11 @@ export function SenderView({ initialIsCreating = false }: { initialIsCreating?: 
   if (selectedShipment) {
     return (
       <div className="fixed inset-0 z-50 bg-background animate-in slide-in-from-right-full duration-300 overflow-y-auto">
-        <ShipmentDetail shipment={selectedShipment} onBack={() => setSelectedShipment(null)} />
+        <ShipmentDetail
+          shipment={selectedShipment}
+          onBack={() => setSelectedShipment(null)}
+          onCanceled={() => { setSelectedShipment(null); fetchShipments(true); }}
+        />
       </div>
     );
   }
@@ -441,8 +450,30 @@ function ShipmentCard({ shipment, onClick }: { shipment: Shipment, onClick: () =
   );
 }
 
-function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () => void }) {
+function ShipmentDetail({ shipment, onBack, onCanceled }: { shipment: Shipment, onBack: () => void, onCanceled: () => void }) {
   const { toast } = useToast();
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState(false);
+  const [isCanceling, setIsCanceling] = useState(false);
+
+  const canCancel = shipment.status === 'searching' || shipment.status === 'waiting_payment';
+
+  const handleCancel = async () => {
+    setIsCanceling(true);
+    try {
+      const { error } = await supabase
+        .from('packages')
+        .update({ status: 'canceled' })
+        .eq('id', shipment.rawId);
+      if (error) throw error;
+      toast({ title: "Envio cancelado", description: "Seu envio foi cancelado com sucesso." });
+      onCanceled();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro ao cancelar", description: err.message || 'Tente novamente.' });
+    } finally {
+      setIsCanceling(false);
+      setIsCancelDialogOpen(false);
+    }
+  };
   const steps = [
     { id: 'searching', label: 'Buscando Viajante', sub: 'Match em processamento' },
     { id: 'waiting_payment', label: 'Aguardando Pagamento', sub: 'PIX gerado — confirme o pagamento' },
@@ -647,10 +678,49 @@ function ShipmentDetail({ shipment, onBack }: { shipment: Shipment, onBack: () =
           <Button variant="outline" className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-muted text-muted-foreground active:scale-95">
             <HelpCircle className="h-4 w-4" /> Ajuda
           </Button>
-          <Button variant="outline" className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-destructive/10 text-destructive hover:bg-destructive/5 active:scale-95">
-            Cancelar
-          </Button>
+          {canCancel ? (
+            <Button
+              variant="outline"
+              onClick={() => setIsCancelDialogOpen(true)}
+              className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-destructive/20 text-destructive hover:bg-destructive/5 active:scale-95"
+            >
+              <XCircle className="h-4 w-4" /> Cancelar Envio
+            </Button>
+          ) : (
+            <Button variant="outline" disabled className="h-14 rounded-[1.5rem] gap-2 font-black text-xs border-2 border-muted text-muted-foreground/40">
+              <XCircle className="h-4 w-4" /> Cancelar
+            </Button>
+          )}
         </section>
+
+        {/* Dialog de confirmação de cancelamento */}
+        <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+          <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
+            <AlertDialogHeader>
+              <div className="h-14 w-14 rounded-2xl bg-destructive/10 flex items-center justify-center mx-auto mb-2">
+                <AlertCircle className="h-7 w-7 text-destructive" />
+              </div>
+              <AlertDialogTitle className="text-center text-xl font-black">Cancelar este envio?</AlertDialogTitle>
+              <AlertDialogDescription className="text-center">
+                {shipment.status === 'waiting_payment'
+                  ? 'Um viajante já foi encontrado para a sua rota. Ao cancelar, ele será notificado. Essa ação não pode ser desfeita.'
+                  : 'Você ainda não pagou por esse envio. Ao cancelar, ele será removido definitivamente. Essa ação não pode ser desfeita.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter className="flex-col gap-2 sm:flex-col">
+              <AlertDialogAction
+                onClick={handleCancel}
+                disabled={isCanceling}
+                className="w-full h-12 rounded-xl font-black bg-destructive hover:bg-destructive/90 text-white"
+              >
+                {isCanceling ? <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Cancelando...</> : 'Sim, cancelar envio'}
+              </AlertDialogAction>
+              <AlertDialogCancel className="w-full h-12 rounded-xl font-black mt-0 border-2">
+                Voltar
+              </AlertDialogCancel>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </div>
   );

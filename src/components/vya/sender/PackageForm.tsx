@@ -1112,7 +1112,7 @@ export function PackageForm({ onComplete }: { onComplete: () => void }) {
 
               <div className="space-y-3">
                 <Button type="submit" disabled={isSubmitting} className="w-full h-16 rounded-[1.5rem] text-lg font-bold gap-3 shadow-xl shadow-primary/20 active:scale-[0.98] transition-transform">
-                  {isSubmitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Criando envio...</> : <>Pagar com PIX <Sparkles className="h-5 w-5 fill-current" /></>}
+                  {isSubmitting ? <><Loader2 className="h-5 w-5 animate-spin" /> Criando envio...</> : <>Solicitar Envio <Sparkles className="h-5 w-5 fill-current" /></>}
                 </Button>
                 <Button variant="ghost" type="button" className="w-full font-bold text-muted-foreground active:scale-95 transition-transform" onClick={prevStep}>
                   Voltar e ajustar
