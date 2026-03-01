@@ -1,0 +1,106 @@
+{
+  "name": "VYA – Logística Colaborativa",
+  "short_name": "VYA",
+  "description": "Envie pacotes com quem já vai pelo caminho. Logística colaborativa.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "portrait",
+  "background_color": "#F15A2B",
+  "theme_color": "#F15A2B",
+  "lang": "pt-BR",
+  "categories": ["logistics", "transportation", "shopping"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "VYA – Tela de início"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Enviar Pacote",
+      "short_name": "Enviar",
+      "description": "Criar um novo envio",
+      "url": "/?action=send",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ]
+}
+
+  "lang": "pt-BR",
+  "categories": ["logistics", "transportation", "shopping"],
+  "icons": [
+    {
+      "src": "/icons/vya-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/vya-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/icons/vya-icon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "form_factor": "narrow",
+      "label": "VYA – Tela de início"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Enviar Pacote",
+      "short_name": "Enviar",
+      "description": "Criar um novo envio",
+      "url": "/?action=send",
+      "icons": [{ "src": "/icons/vya-icon.svg", "sizes": "any" }]
+    }
+  ]
+}

@@ -11,6 +11,7 @@ import { ProfileView } from "@/components/vya/profile/ProfileView";
 import { AuthScreen } from "@/components/vya/auth/AuthScreen";
 import { OnboardingFlow } from "@/components/vya/onboarding/OnboardingFlow";
 import { AppProvider, useAppContext } from "@/contexts/AppContext";
+import { PwaInstallPrompt } from "@/components/vya/shared/PwaInstallPrompt";
 import { Box } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -186,6 +187,9 @@ function AppShell() {
           onTabChange={handleTabChange}
         />
       )}
+
+      {/* Banner de instalação PWA — visível somente quando logado e não instalado */}
+      {!showOnboarding && <PwaInstallPrompt userId={userId} />}
     </div>
   );
 }
